@@ -286,21 +286,13 @@ const createNumberAI = () => {
     const batchSize = Math.min(16, data.length);
 
     let lastLoss = 0;
-    let bestLoss = Infinity;
-    let stale = 0;
     let rounds = 0;
+    // Genau so viele Runden, wie eingegeben - kein vorzeitiger Abbruch.
     for (let i = 0; i < epochs; i++) {
       // Grosse Schritte am Anfang, feinere spaeter -> schnell und genau.
-      const lr = 0.02 * (1 - 0.5 * (i / epochs));
+      const lr = 0.02 * (1 - 0.7 * (i / epochs)) + 0.002;
       lastLoss = state.net.trainEpoch(data, { lr, batchSize });
       rounds = i + 1;
-
-      if (lastLoss < bestLoss - 1e-6) {
-        bestLoss = lastLoss;
-        stale = 0;
-      } else {
-        stale++;
-      }
 
       if (i % 10 === 0 || i === epochs - 1) {
         el.progress.style.width = (((i + 1) / epochs) * 100).toFixed(1) + "%";
@@ -309,7 +301,6 @@ const createNumberAI = () => {
         if (onProgress) onProgress(i + 1, epochs);
         await UI.sleep(0);
       }
-      if (stale > 200 && i > 100) break;
     }
 
     el.progress.style.width = "100%";

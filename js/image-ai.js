@@ -425,9 +425,9 @@ const createImageAI = () => {
     const nClasses = Math.max(state.categories.length, 2);
 
     let lastLoss = 0;
-    let bestLoss = Infinity;
-    let stale = 0;
     let rounds = 0;
+    // Wir trainieren GENAU so viele Runden, wie eingegeben wurden. Kein
+    // vorzeitiger Abbruch - wer 1000 Runden möchte, bekommt 1000 Runden.
     for (let i = 0; i < epochs; i++) {
       // Bei jeder Runde jedes Bild neu verwackeln -> unendlich viele Varianten
       const data = state.examples.map((ex) => ({
@@ -435,31 +435,22 @@ const createImageAI = () => {
         target: NN.oneHot(ex.label, nClasses),
       }));
       // Am Anfang groessere Schritte, spaeter feinere: so geht es schnell
-      // voran und wird trotzdem genau.
-      const lr = 0.03 * (1 - 0.6 * (i / epochs));
+      // voran und wird trotzdem genau. Wir bleiben dabei immer ueber einer
+      // kleinen Untergrenze, damit auch spaete Runden noch etwas bringen.
+      const lr = 0.03 * (1 - 0.7 * (i / epochs)) + 0.004;
       lastLoss = state.net.trainEpoch(data, {
         lr,
         batchSize: Math.min(8, data.length),
       });
       rounds = i + 1;
 
-      // Fruehstopp: Wenn sich der Fehler lange nicht mehr verbessert,
-      // hoeren wir auf. Das spart Zeit, ohne schlechter zu werden.
-      if (lastLoss < bestLoss - 1e-4) {
-        bestLoss = lastLoss;
-        stale = 0;
-      } else {
-        stale++;
-      }
-
       if (i % 3 === 0 || i === epochs - 1) {
         el.progress.style.width = (((i + 1) / epochs) * 100).toFixed(1) + "%";
-        setStatus(`Runde ${i + 1}/${epochs} – Fehler: ${lastLoss.toFixed(3)}`);
+        setStatus(`Runde ${i + 1} von ${epochs} – Fehler: ${lastLoss.toFixed(3)}`);
         drawChart();
         if (onProgress) onProgress(i + 1, epochs);
         await UI.sleep(0);
       }
-      if (stale > 60 && i > 40) break;
     }
 
     el.progress.style.width = "100%";
@@ -487,7 +478,11 @@ const createImageAI = () => {
       UI.confetti(70);
       UI.toast("Jetzt erkenne ich deine Zeichnungen! 🎉", "success");
     } else {
-      UI.toast("Ich habe gelernt – teste mich und gib mir mehr Beispiele.", "info");
+      UI.toast(
+        "Der Fehler ist noch etwas hoch. Tipp: mehr Runden eintippen " +
+          "(z. B. 1000) oder mehr Beispiele geben.",
+        "info"
+      );
     }
     return true;
   }
@@ -550,6 +545,9 @@ const createImageAI = () => {
   // Gegenprobe: Die KI malt selbst ein Bild
   // ---------------------------------------------------------------------------
 
+  // Zeichnet das gemalte Bild. Wichtig: nur kraeftige Zellen werden dunkel,
+  // schwach angedeutete bleiben weiss. So sieht das Bild klar aus und nicht
+  // wie ein grauer Schleier.
   function renderGenerated(vec) {
     const canvas = el.genCanvas;
     if (!canvas) return;
@@ -561,12 +559,60 @@ const createImageAI = () => {
     for (let gy = 0; gy < GRID; gy++) {
       for (let gx = 0; gx < GRID; gx++) {
         const v = Math.max(0, Math.min(1, vec[gy * GRID + gx]));
-        if (v <= 0.02) continue;
-        const g = Math.round(255 - v * 220);
-        ctx.fillStyle = `rgb(${g},${g},${g + 6})`;
+        if (v <= 0.5) continue;
+        // Zwischen 0.5 und 0.75 wird es schnell dunkel: klare Kante,
+        // kein Schleier.
+        const t = Math.min(1, (v - 0.5) / 0.25);
+        const g = Math.round(255 - t * 235);
+        ctx.fillStyle = `rgb(${g},${g},${g})`;
         ctx.fillRect(gx * cell, gy * cell, Math.ceil(cell), Math.ceil(cell));
       }
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Werkzeuge zum Selber-Malen der KI
+  // -------------------------------------------------------------------------
+
+  /** Verschiebt ein Bild Schritt fuer Schritt in Richtung "sicher fuer Ziel". */
+  function refineInput(start, targetIndex, steps) {
+    const img = Float64Array.from(start);
+    for (let s = 0; s < steps; s++) {
+      const lr = 0.15 * (1 - 0.6 * (s / steps));
+      const grad = state.net.inputGradient(img, targetIndex);
+      for (let i = 0; i < FEATURES; i++) {
+        let v = img[i] - lr * grad[i];
+        img[i] = v < 0 ? 0 : v > 1 ? 1 : v;
+      }
+    }
+    return img;
+  }
+
+  /** Behaelt nur die K kraeftigsten Zellen - daraus wird ein klares Bild. */
+  function binarizeTop(vec, k) {
+    const order = Array.from({ length: FEATURES }, (_, i) => i).sort(
+      (a, b) => vec[b] - vec[a]
+    );
+    const out = new Float64Array(FEATURES);
+    for (let i = 0; i < k && i < order.length; i++) out[order[i]] = 1;
+    return out;
+  }
+
+  /** Zaehlt einsame Punkte (ohne Nachbar) - die wirken wie Sprenkel. */
+  function countIsolated(vec) {
+    let n = 0;
+    for (let y = 0; y < GRID; y++) {
+      for (let x = 0; x < GRID; x++) {
+        if (vec[y * GRID + x] < 0.5) continue;
+        let nb = 0;
+        if (x > 0 && vec[y * GRID + x - 1] >= 0.5) nb++;
+        if (x < GRID - 1 && vec[y * GRID + x + 1] >= 0.5) nb++;
+        if (y > 0 && vec[(y - 1) * GRID + x] >= 0.5) nb++;
+        if (y < GRID - 1 && vec[(y + 1) * GRID + x] >= 0.5) nb++;
+        if (nb === 0) n++;
+      }
+    }
+    return n;
   }
 
   async function generateImage() {
@@ -583,50 +629,79 @@ const createImageAI = () => {
     el.genRun.disabled = true;
     el.genStatus.textContent = `Ich überlege, wie „${cat.name}" aussieht…`;
 
-    const size = FEATURES;
-
-    // Startpunkt: der Durchschnitt aller deiner Bilder dieser Sache.
-    // Das ist eine gute Grundform - die KI kennt sie schon.
-    const start = new Float64Array(size);
+    // Wie viel "Tinte" haben deine eigenen Bilder dieser Sache?
+    // Daran halten wir uns - dann sieht das gemalte Bild so aus wie deine.
     const mine = state.examples.filter((ex) => ex.label === idx);
-    if (mine.length) {
-      for (const ex of mine) {
-        for (let i = 0; i < size; i++) start[i] += ex.data[i];
-      }
-      for (let i = 0; i < size; i++) start[i] /= mine.length;
-    } else {
-      for (let i = 0; i < size; i++) start[i] = 0.15 + Math.random() * 0.1;
+    if (!mine.length) {
+      UI.toast("Für diese Sache habe ich noch keine Beispiele.", "warn");
+      el.genRun.disabled = false;
+      return;
     }
-    let startInk = 0;
-    for (let i = 0; i < size; i++) startInk += start[i];
+    const inks = mine
+      .map((ex) => {
+        let n = 0;
+        for (let i = 0; i < FEATURES; i++) if (ex.data[i] > 0.35) n++;
+        return n;
+      })
+      .sort((a, b) => a - b);
+    const targetInk = Math.max(3, inks[Math.floor(inks.length / 2)]);
 
-    // Jetzt verfeinern: Schritt fuer Schritt in Richtung "sicher" schieben.
-    // Danach die Menge an "Tinte" wieder auf den Ausgangswert bringen - so
-    // bleibt das Bild sauber, statt ganz schwarz zu werden.
-    const img = Float64Array.from(start);
-    const steps = 60;
-    for (let s = 0; s < steps; s++) {
-      const lr = 0.15 * (1 - 0.6 * (s / steps));
-      const grad = state.net.inputGradient(img, idx);
-      for (let i = 0; i < size; i++) {
-        let v = img[i] - lr * grad[i];
-        img[i] = v < 0 ? 0 : v > 1 ? 1 : v;
+    // Startpunkte: der Durchschnitt, ein typisches Bild und ein Mix daraus.
+    // Aus allen wird der beste Kandidat gewaehlt.
+    const mean = new Float64Array(FEATURES);
+    for (const ex of mine) {
+      for (let i = 0; i < FEATURES; i++) mean[i] += ex.data[i];
+    }
+    for (let i = 0; i < FEATURES; i++) mean[i] /= mine.length;
+
+    const distTo = (a, b) => {
+      let s = 0;
+      for (let i = 0; i < FEATURES; i++) {
+        const d = a[i] - b[i];
+        s += d * d;
       }
-      let ink = 0;
-      for (let i = 0; i < size; i++) ink += img[i];
-      if (startInk > 0 && ink > 0) {
-        const f = startInk / ink;
-        for (let i = 0; i < size; i++) img[i] = Math.min(1, img[i] * f);
+      return s;
+    };
+    let typical = mine[0].data;
+    let bestDist = Infinity;
+    let surest = mine[0].data;
+    let bestConf = -1;
+    for (const ex of mine) {
+      const d = distTo(ex.data, mean);
+      if (d < bestDist) {
+        bestDist = d;
+        typical = ex.data;
       }
-      if (s % 8 === 0) {
-        renderGenerated(img);
+      const c = state.net.predict(ex.data)[idx] || 0;
+      if (c > bestConf) {
+        bestConf = c;
+        surest = ex.data;
+      }
+    }
+    const mix = new Float64Array(FEATURES);
+    for (let i = 0; i < FEATURES; i++) mix[i] = 0.5 * mean[i] + 0.5 * typical[i];
+
+    const starts = [mean, typical, surest, mix];
+    let best = null;
+    let bestScore = -Infinity;
+    for (let c = 0; c < starts.length; c++) {
+      const refined = refineInput(starts[c], idx, 70);
+      const binar = binarizeTop(refined, targetInk);
+      const conf = state.net.predict(binar)[idx] || 0;
+      // Sicherheit zaehlt, Sprenkel stoeren.
+      const score = conf - 0.04 * countIsolated(binar);
+      if (score > bestScore) {
+        bestScore = score;
+        best = binar;
+      }
+      if (c === 0) {
+        renderGenerated(binar);
         await UI.sleep(0);
       }
     }
 
-    renderGenerated(img);
-    const probs = state.net.predict(img);
-    const conf = Math.round((probs[idx] || 0) * 100);
+    renderGenerated(best);
+    const conf = Math.round((state.net.predict(best)[idx] || 0) * 100);
     el.genStatus.innerHTML =
       `Das ist meine Vorstellung von <strong>„${UI.escapeHtml(cat.name)}"</strong>. ` +
       `Wenn ich dieses Bild sehe, bin ich mir zu ${conf}% sicher.`;

@@ -357,21 +357,13 @@ const createTextAI = () => {
     const nClasses = Math.max(state.categories.length, 2);
 
     let lastLoss = 0;
-    let bestLoss = Infinity;
-    let stale = 0;
     let rounds = 0;
+    // Genau so viele Runden, wie eingegeben - kein vorzeitiger Abbruch.
     for (let i = 0; i < epochs; i++) {
       // Grosse Schritte am Anfang, feinere spaeter -> schnell und genau.
-      const lr = 0.02 * (1 - 0.5 * (i / epochs));
+      const lr = 0.02 * (1 - 0.7 * (i / epochs)) + 0.002;
       lastLoss = state.net.trainEpoch(data, { lr, batchSize });
       rounds = i + 1;
-
-      if (lastLoss < bestLoss - 1e-4) {
-        bestLoss = lastLoss;
-        stale = 0;
-      } else {
-        stale++;
-      }
 
       if (i % 5 === 0 || i === epochs - 1) {
         el.progress.style.width = (((i + 1) / epochs) * 100).toFixed(1) + "%";
@@ -380,7 +372,6 @@ const createTextAI = () => {
         if (onProgress) onProgress(i + 1, epochs);
         await UI.sleep(0);
       }
-      if (stale > 120 && i > 60) break;
     }
 
     el.progress.style.width = "100%";

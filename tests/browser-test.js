@@ -322,14 +322,25 @@ const URL = process.env.TEST_URL || "http://localhost:12000/index.html";
   const genText = await page.textContent("#gen-status");
   console.log("    " + genText.replace(/\s+/g, " ").trim().slice(0, 120));
   check("KI hat ein Bild gemalt", /Vorstellung von/.test(genText));
-  const genInk = await page.evaluate(() => {
+  const genStats = await page.evaluate(() => {
     const c = document.getElementById("gen-canvas");
     const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
     let dark = 0;
-    for (let i = 0; i < d.length; i += 4) if (d[i] < 200) dark++;
-    return dark;
+    let gray = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      const v = d[i];
+      if (v < 90) dark++;
+      else if (v < 210) gray++;
+    }
+    return { dark, gray };
   });
-  check("Gemaltes Bild hat sichtbare Form", genInk > 200, "dunkle Pixel: " + genInk);
+  check("Gemaltes Bild hat sichtbare Form", genStats.dark > 200, "dunkle Pixel: " + genStats.dark);
+  // Kein grauer Schleier: es soll fast nur Schwarz und Weiss geben.
+  check(
+    "Gemaltes Bild ist klar (nicht grau)",
+    genStats.gray < genStats.dark * 0.5,
+    `dunkel ${genStats.dark}, grau ${genStats.gray}`
+  );
 
   // Gegenprobe: Das gemalte Bild wird auch erkannt (Erwartung == gewaehlte Sache)
   const genCheck = await page.evaluate(() => {
@@ -347,6 +358,34 @@ const URL = process.env.TEST_URL || "http://localhost:12000/index.html";
   // Folgen-Anzeige: nach dem Training mit genug Beispielen -> gute Meldung
   const consText = await page.textContent("#image-consequence");
   check("Folgen werden angezeigt", consText.trim().length > 0, consText.slice(0, 60));
+
+  // ---------------------------------------------------------------------------
+  console.log("\n[5c2] Genau so viele Runden wie eingegeben");
+  // Wir lassen nur 5 Runden laufen und pruefen, dass genau 5 gerechnet wurden.
+  await page.fill("#image-epochs", "5");
+  const before5 = await page.evaluate(() => window.KI.image.state.net.trainingSteps);
+  await page.click("#image-train");
+  await page.waitForFunction(
+    () => document.getElementById("image-status").textContent.includes("Fertig"),
+    { timeout: 60000 }
+  );
+  const after5 = await page.evaluate(() => window.KI.image.state.net.trainingSteps);
+  check("Genau 5 Runden gerechnet (kein Frühstopp)", after5 - before5 === 5,
+    `differenz: ${after5 - before5}`);
+
+  // Und jetzt 60 Runden - auch die muessen vollstaendig laufen.
+  await page.fill("#image-epochs", "60");
+  const before60 = await page.evaluate(() => window.KI.image.state.net.trainingSteps);
+  await page.click("#image-train");
+  await page.waitForFunction(
+    () => document.getElementById("image-status").textContent.includes("Fertig"),
+    { timeout: 120000 }
+  );
+  const after60 = await page.evaluate(() => window.KI.image.state.net.trainingSteps);
+  check("Genau 60 Runden gerechnet", after60 - before60 === 60,
+    `differenz: ${after60 - before60}`);
+  const status60 = await page.textContent("#image-status");
+  check("Status nennt die volle Rundenzahl", /nach 60 Runden/.test(status60), status60.slice(0, 70));
 
   // ---------------------------------------------------------------------------
   console.log("\n[5d] Keine Beschränkungen mehr");

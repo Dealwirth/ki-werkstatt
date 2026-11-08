@@ -102,9 +102,10 @@ jede Empfehlung übergehen. Wer mag, trainiert mit 10 Runden oder mit 5000.
 ### Was automatisch besser geworden ist
 
 - **Adaptive Lernrate:** Am Anfang große Schritte, später feine. Das Netz
-  kommt schneller in die Nähe der Lösung und wird dann genau.
-- **Frühstopp:** Verbessert sich der Fehler lange nicht mehr, hört das
-  Training von selbst auf. Das spart Zeit, ohne schlechter zu werden.
+  kommt schneller in die Nähe der Lösung und wird dann genau – und behält
+  immer eine kleine Untergrenze, damit auch späte Runden noch wirken.
+- **Genau so viele Runden wie eingegeben:** Tippst du 1000 ein, rechnet die KI
+  auch 1000 Runden. Kein vorzeitiger Abbruch, kein „keine Lust mehr".
 - **Trefferquote:** Nach dem Training sagt die KI ehrlich, wie viele ihrer
   eigenen Beispiele sie richtig erkennt.
 - **Größeres Netz bei schweren Aufgaben:** Mehr Kategorien und mehr Beispiele
@@ -114,10 +115,21 @@ jede Empfehlung übergehen. Wer mag, trainiert mit 10 Runden oder mit 5000.
 
 ### 🖌️ Gegenprobe: Die KI malt selbst
 
-Nach dem Training gibt es die Gegenprobe **„Ich male selbst!"**. Die KI startet
-beim Durchschnitt deiner Zeichnungen und schiebt das Bild Schritt für Schritt in
-die Richtung, die sie für „sicher" hält. So entsteht ein Bild, das sie selbst
-wieder erkennt. Danach zeigt sie, wie sicher sie sich dabei ist.
+Nach dem Training gibt es die Gegenprobe **„Ich male selbst!"**. So funktioniert
+sie, Schritt für Schritt:
+
+1. Die KI schaut, wie viel „Tinte" deine eigenen Bilder dieser Sache haben
+   (den Mittelwert). Daran hält sie sich.
+2. Sie probiert vier Startpunkte aus: den Durchschnitt deiner Bilder, ein
+   typisches Bild, dein klarstes Bild und eine Mischung daraus.
+3. Jeden Kandidaten schiebt sie in Richtung „sicher" und behält am Ende die
+   **kräftigsten Punkte** – genau so viele, wie deine eigenen Bilder haben.
+4. Aus allen Kandidaten gewinnt der, den sie am sichersten erkennt und der am
+   wenigsten verstreute Einzelpunkte hat.
+
+Das Ergebnis ist ein **klares Schwarz-Weiß-Bild** – kein grauer Schleier. Bei
+rund 10 Bildern pro Sache klappt das schon sehr gut; mehr Beispiele machen es
+noch deutlicher.
 
 Das ist ein ehrlicher, lehrreicher Blick in die KI: Sie kann nur malen, was sie
 aus deinen Beispielen kennt. Zeigst du ihr nichts, malt sie nichts Sinnvolles.
@@ -184,7 +196,7 @@ window.Storage.isCloudEnabled()    // ist ein Repository verbunden?
 
 ```bash
 node tests/nn-test.js       # 20 Tests: die Engine (XOR, Regression, Gradient, Selbst-Malen)
-node tests/browser-test.js  # 75 Tests: die ganze Seite im echten Browser
+node tests/browser-test.js  # 79 Tests: die ganze Seite im echten Browser
 ```
 
 Der Browser-Test braucht `playwright-core` und Chromium:
