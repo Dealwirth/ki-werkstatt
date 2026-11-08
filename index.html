@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Meine KI-Werkstatt – Bringe einem Computer bei, was du weißt</title>
+  <meta name="description" content="Eine echte KI, die bei null anfängt. Kinder bringen ihr selbst bei, Wörter zu sortieren, Bilder zu erkennen und Muster zu verstehen." />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>" />
+</head>
+<body>
+
+  <!-- ====================== KOPFBEREICH ====================== -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-robot" aria-hidden="true">🤖</span>
+      <div>
+        <h1>Meine KI-Werkstatt</h1>
+        <p class="brand-sub">Eine KI, die bei null anfängt – und von dir lernt.</p>
+      </div>
+    </div>
+
+    <div class="brain-meter" title="Wie viele Beispiele deine KI schon gesehen hat">
+      <span class="brain-icon" aria-hidden="true">🧠</span>
+      <div>
+        <div class="brain-count"><span id="global-samples">0</span> Beispiele</div>
+        <div class="brain-hint">ins Gehirn gepackt</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ====================== NAVIGATION ====================== -->
+  <nav class="tabs" id="tabs" role="tablist">
+    <button class="tab active" data-tab="home" role="tab">🏠 Start</button>
+    <button class="tab" data-tab="text" role="tab">📚 Wörter-KI</button>
+    <button class="tab" data-tab="image" role="tab">🎨 Bild-KI</button>
+    <button class="tab" data-tab="number" role="tab">🔢 Zahlen-KI</button>
+    <button class="tab" data-tab="howto" role="tab">💡 So funktioniert's</button>
+  </nav>
+
+  <main class="content">
+
+    <!-- ============================================================
+         STARTSEITE
+    ============================================================= -->
+    <section class="panel active" id="panel-home">
+      <div class="hero">
+        <div class="hero-text">
+          <h2>Hallo! Ich bin <strong>Nullo</strong> 🤖</h2>
+          <p>
+            Ich bin eine künstliche Intelligenz – aber ich weiß noch
+            <strong>überhaupt nichts</strong>. Ich kann nicht lesen, nicht rechnen
+            und nicht zeichnen. Ich bin wie ein Baby, das alles erst lernen muss.
+          </p>
+          <p>
+            <strong>Du bist meine Lehrerin oder mein Lehrer!</strong> Zeige mir
+            Beispiele, und ich versuche, das Muster darin zu finden. Wenn ich
+            mich irre, sagst du mir das, und ich verbessere mich.
+          </p>
+          <div class="hero-actions">
+            <button class="btn btn-primary btn-big" data-goto="text">📚 Bring mir Wörter bei</button>
+            <button class="btn btn-ghost btn-big" data-goto="image">🎨 Bring mir Zeichnen bei</button>
+          </div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="mascot" id="home-mascot">🤖</div>
+          <div class="speech-bubble" id="home-speech">
+            Ich kann noch nichts. Aber du kannst mir alles beibringen!
+          </div>
+        </div>
+      </div>
+
+      <div class="cards">
+        <article class="card" data-goto="text">
+          <div class="card-emoji">📚</div>
+          <h3>Wörter-KI</h3>
+          <p>Bringe mir bei, Wörter in Schubladen zu sortieren – zum Beispiel Obst und Tiere.</p>
+          <span class="card-cta">Ausprobieren →</span>
+        </article>
+        <article class="card" data-goto="image">
+          <div class="card-emoji">🎨</div>
+          <h3>Bild-KI</h3>
+          <p>Male mir Bilder und sage mir, was es ist. Danach erkenne ich neue Zeichnungen.</p>
+          <span class="card-cta">Ausprobieren →</span>
+        </article>
+        <article class="card" data-goto="number">
+          <div class="card-emoji">🔢</div>
+          <h3>Zahlen-KI</h3>
+          <p>Zeige mir Zahlen und ihre Ergebnisse. Ich suche die geheime Regel dahinter.</p>
+          <span class="card-cta">Ausprobieren →</span>
+        </article>
+      </div>
+
+      <div class="badge-board">
+        <h3>🏅 Deine Abzeichen</h3>
+        <p class="muted">Sammle alle! Jedes Abzeichen zeigt, was du schon geschafft hast.</p>
+        <div class="badges" id="badge-list"></div>
+      </div>
+
+      <div class="card danger-zone">
+        <h3>🧹 Aufräumen</h3>
+        <p>Alles wieder auf Anfang setzen? Deine KI vergisst dann alles, was du ihr beigebracht hast.</p>
+        <button class="btn btn-warn" id="reset-all">Alles löschen und neu anfangen</button>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         WÖRTER-KI
+    ============================================================= -->
+    <section class="panel" id="panel-text">
+      <div class="module-head">
+        <h2>📚 Wörter-KI</h2>
+        <p class="muted">
+          Sortiere Wörter in <strong>Schubladen</strong> (Kategorien). Die KI zählt
+          Buchstaben und sucht Muster. Anfangs rät sie nur – mit jedem Beispiel wird sie besser.
+        </p>
+        <div class="callout">
+          <strong>🔍 Wichtig zu wissen:</strong> Die KI sieht nur Buchstaben – keine
+          Bedeutung. Sie lernt <em>Muster</em> super: „Wörter mit SCH", „Wörter mit IE",
+          „kurze Wörter". Aber sie kann nicht lernen, dass ein Apfel Obst ist, weil
+          „Apfel" und „Birne" sich als Buchstaben nicht ähnlicher sind als „Apfel" und „Hund".
+        </div>
+      </div>
+
+      <div class="layout-2col">
+
+        <!-- Links: Daten + Training -->
+        <div class="column">
+          <div class="card">
+            <h3>1️⃣ Schubladen bauen</h3>
+            <p class="muted">Gib jeder Schublade einen Namen, z. B. „Obst" oder „Tiere".</p>
+            <div class="row">
+              <input type="text" id="text-category-input" placeholder="Name der Schublade…" maxlength="20" />
+              <button class="btn btn-primary" id="text-add-category">Hinzufügen</button>
+            </div>
+            <div class="chip-list" id="text-categories"></div>
+          </div>
+
+          <div class="card">
+            <h3>2️⃣ Beispiele zeigen</h3>
+            <p class="muted">Schreibe ein Wort und wähle, in welche Schublade es gehört.</p>
+            <div class="row">
+              <input type="text" id="text-word-input" placeholder="z. B. Apfel" maxlength="30" />
+              <select id="text-word-category"></select>
+              <button class="btn btn-primary" id="text-add-example">Beibringen</button>
+            </div>
+            <p class="mini-hint">
+              Tipp: Für gute Ergebnisse brauchst du <strong>mindestens 5 Wörter pro Schublade</strong>.
+            </p>
+            <p class="mini-hint">
+              <strong>Keine Idee?</strong> Probier ein Muster aus – das lernt die KI besonders gut:
+            </p>
+            <div class="preset-row">
+              <button class="btn btn-ghost btn-small" data-preset="sch">Wörter mit SCH</button>
+              <button class="btn btn-ghost btn-small" data-preset="ei">Wörter mit IE</button>
+              <button class="btn btn-ghost btn-small" data-preset="kurz">kurz oder lang</button>
+              <button class="btn btn-ghost btn-small" data-preset="er">endet auf -ER</button>
+            </div>
+            <div class="example-list" id="text-examples"></div>
+          </div>
+
+          <div class="card">
+            <h3>3️⃣ Trainieren</h3>
+            <div class="train-controls">
+              <button class="btn btn-learn" id="text-train">🧠 Lernen lassen</button>
+              <label class="mini-field">
+                Runden
+                <input type="number" id="text-epochs" value="300" min="10" max="5000" step="10" />
+              </label>
+            </div>
+            <div class="progress"><div class="progress-fill" id="text-progress"></div></div>
+            <p class="train-status" id="text-status">Noch nicht trainiert.</p>
+            <canvas class="loss-chart" id="text-loss-chart" height="130"></canvas>
+          </div>
+        </div>
+
+        <!-- Rechts: Testen -->
+        <div class="column">
+          <div class="card sticky">
+            <h3>🔍 Die KI testen</h3>
+            <p class="muted">Gib ein <em>neues</em> Wort ein, das sie noch nicht kennt.</p>
+            <div class="row">
+              <input type="text" id="text-test-input" placeholder="Neues Wort…" maxlength="30" />
+              <button class="btn btn-primary" id="text-test-btn">Fragen</button>
+            </div>
+            <div class="answer-box" id="text-answer">
+              <p class="muted">Noch keine Antwort. Stell mir eine Frage!</p>
+            </div>
+            <div class="prob-list" id="text-probs"></div>
+
+            <hr class="sep" />
+            <h4>📊 Wie schlau bin ich?</h4>
+            <div class="stat-grid">
+              <div class="stat"><span id="text-stat-examples">0</span><small>Beispiele</small></div>
+              <div class="stat"><span id="text-stat-rounds">0</span><small>Trainingsrunden</small></div>
+              <div class="stat"><span id="text-stat-acc">–</span><small>Trefferquote</small></div>
+            </div>
+            <button class="btn btn-ghost btn-block" id="text-self-test">Selbst-Test machen</button>
+            <button class="btn btn-ghost btn-block" id="text-save">💾 KI speichern</button>
+            <button class="btn btn-ghost btn-block" id="text-load">📂 KI laden</button>
+            <input type="file" id="text-load-file" accept="application/json" hidden />
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================================
+         BILD-KI
+    ============================================================= -->
+    <section class="panel" id="panel-image">
+      <div class="module-head">
+        <h2>🎨 Bild-KI</h2>
+        <p class="muted">
+          Zeichne etwas und sage der KI, was es ist. Sie lernt aus den Pixeln.
+          Danach erkennt sie neue Zeichnungen – wenn du ihr genug gezeigt hast.
+        </p>
+        <div class="callout">
+          <strong>🔍 Wichtig zu wissen:</strong> Die KI sieht keine „Katze" – sie sieht
+          256 kleine Kästchen mit Zahlen. Sie lernt die <em>Form</em>, nicht die Farbe.
+          Deshalb ist es egal, ob du bunt oder schwarz malst. Zeichne jedes Mal ein
+          <em>bisschen anders</em>, dann wird sie besonders schlau!
+        </div>
+      </div>
+
+      <div class="layout-2col">
+
+        <div class="column">
+          <div class="card">
+            <h3>1️⃣ Was kann die KI lernen?</h3>
+            <p class="muted">Lege bis zu 4 Sachen fest, die du zeichnen willst.</p>
+            <div class="row">
+              <input type="text" id="image-category-input" placeholder="z. B. Katze" maxlength="20" />
+              <button class="btn btn-primary" id="image-add-category">Hinzufügen</button>
+            </div>
+            <div class="chip-list" id="image-categories"></div>
+          </div>
+
+          <div class="card">
+            <h3>2️⃣ Zeichnen &amp; beibringen</h3>
+            <div class="draw-wrap">
+              <canvas id="draw-canvas" width="280" height="280"></canvas>
+              <div class="draw-side">
+                <p class="muted">Male mit der Maus oder dem Finger:</p>
+                <select id="draw-category"></select>
+                <button class="btn btn-primary btn-block" id="draw-save">➕ Als Beispiel merken</button>
+                <button class="btn btn-ghost btn-block" id="draw-clear">🧽 Leinwand leeren</button>
+                <label class="mini-field">
+                  Stiftdicke
+                  <input type="range" id="draw-size" min="8" max="40" value="22" />
+                </label>
+              </div>
+            </div>
+            <p class="mini-hint">
+              Für gute Ergebnisse: <strong>mindestens 10 Zeichnungen pro Sache</strong>,
+              und male jedes Mal ein bisschen anders.
+            </p>
+            <div class="thumb-grid" id="image-thumbs"></div>
+          </div>
+
+          <div class="card">
+            <h3>3️⃣ Trainieren</h3>
+            <div class="train-controls">
+              <button class="btn btn-learn" id="image-train">🧠 Lernen lassen</button>
+              <label class="mini-field">
+                Runden
+                <input type="number" id="image-epochs" value="120" min="10" max="3000" step="10" />
+              </label>
+            </div>
+            <div class="progress"><div class="progress-fill" id="image-progress"></div></div>
+            <p class="train-status" id="image-status">Noch nicht trainiert.</p>
+            <canvas class="loss-chart" id="image-loss-chart" height="130"></canvas>
+          </div>
+        </div>
+
+        <div class="column">
+          <div class="card sticky">
+            <h3>🔍 Die KI testen</h3>
+            <p class="muted">Zeichne etwas Neues und schau, was die KI darin sieht.</p>
+            <canvas id="test-canvas" width="280" height="280"></canvas>
+            <div class="draw-side">
+              <button class="btn btn-ghost btn-block" id="test-clear">🧽 Leeren</button>
+              <label class="mini-field">
+                Stiftdicke
+                <input type="range" id="test-size" min="8" max="40" value="22" />
+              </label>
+            </div>
+            <div class="answer-box" id="image-answer">
+              <p class="muted">Zeichne los – ich verrate dir, was ich sehe.</p>
+            </div>
+            <div class="prob-list" id="image-probs"></div>
+
+            <hr class="sep" />
+            <h4>📊 Wie schlau bin ich?</h4>
+            <div class="stat-grid">
+              <div class="stat"><span id="image-stat-examples">0</span><small>Zeichnungen</small></div>
+              <div class="stat"><span id="image-stat-rounds">0</span><small>Trainingsrunden</small></div>
+              <div class="stat"><span id="image-stat-acc">–</span><small>Trefferquote</small></div>
+            </div>
+            <button class="btn btn-ghost btn-block" id="image-self-test">Selbst-Test machen</button>
+            <button class="btn btn-ghost btn-block" id="image-save">💾 KI speichern</button>
+            <button class="btn btn-ghost btn-block" id="image-load">📂 KI laden</button>
+            <input type="file" id="image-load-file" accept="application/json" hidden />
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================================
+         ZAHLEN-KI
+    ============================================================= -->
+    <section class="panel" id="panel-number">
+      <div class="module-head">
+        <h2>🔢 Zahlen-KI</h2>
+        <p class="muted">
+          Zeige der KI Paare aus <strong>Eingabe</strong> und <strong>Ergebnis</strong>.
+          Sie sucht die geheime Regel dazwischen – ganz ohne, dass du sie verrätst!
+        </p>
+        <div class="callout">
+          <strong>🔍 Wichtig zu wissen:</strong> Die KI ist gut darin, <em>zwischen</em>
+          deinen Beispielen zu raten. Aber sie kann nicht <em>über sie hinaus</em> denken:
+          Wenn du nur bis 5 zeigst, weiß sie nicht, was bei 100 passiert. Das nennt man
+          „Extrapolation" – und genau daran scheitern auch echte KIs.
+        </div>
+      </div>
+
+      <div class="layout-2col">
+
+        <div class="column">
+          <div class="card">
+            <h3>1️⃣ Beispiele zeigen</h3>
+            <p class="muted">
+              Idee: <code>Eingabe 3 → Ergebnis 7</code> (z. B. die Regel „mal 2 plus 1").
+              Zeige viele verschiedene Zahlen, dann errät die KI die Regel.
+            </p>
+            <div class="row">
+              <input type="number" id="number-in" placeholder="Eingabe (x)" step="any" />
+              <span class="arrow">→</span>
+              <input type="number" id="number-out" placeholder="Ergebnis (y)" step="any" />
+              <button class="btn btn-primary" id="number-add">Beibringen</button>
+            </div>
+            <button class="btn btn-ghost" id="number-autofill">✨ Beispiel-Regel füllen (x → x·2+1)</button>
+            <div class="example-list" id="number-examples"></div>
+          </div>
+
+          <div class="card">
+            <h3>2️⃣ Trainieren</h3>
+            <div class="train-controls">
+              <button class="btn btn-learn" id="number-train">🧠 Lernen lassen</button>
+              <label class="mini-field">
+                Runden
+                <input type="number" id="number-epochs" value="800" min="10" max="10000" step="10" />
+              </label>
+            </div>
+            <div class="progress"><div class="progress-fill" id="number-progress"></div></div>
+            <p class="train-status" id="number-status">Noch nicht trainiert.</p>
+            <canvas class="loss-chart" id="number-loss-chart" height="130"></canvas>
+          </div>
+        </div>
+
+        <div class="column">
+          <div class="card sticky">
+            <h3>🔍 Die KI testen</h3>
+            <p class="muted">Gib eine Zahl ein und schau, was die KI vorhersagt.</p>
+            <div class="row">
+              <input type="number" id="number-test" placeholder="Zahl…" step="any" />
+              <button class="btn btn-primary" id="number-test-btn">Vorhersagen</button>
+            </div>
+            <div class="answer-box" id="number-answer">
+              <p class="muted">Noch keine Vorhersage.</p>
+            </div>
+
+            <hr class="sep" />
+            <h4>📈 Gelernte Regel</h4>
+            <canvas class="plot" id="number-plot" height="220"></canvas>
+            <p class="mini-hint">
+              <span class="legend-dot" style="background:#4d96ff"></span> deine Beispiele
+              &nbsp; <span class="legend-dot" style="background:#ff6b6b"></span> was die KI glaubt
+            </p>
+
+            <hr class="sep" />
+            <div class="stat-grid">
+              <div class="stat"><span id="number-stat-examples">0</span><small>Beispiele</small></div>
+              <div class="stat"><span id="number-stat-rounds">0</span><small>Trainingsrunden</small></div>
+              <div class="stat"><span id="number-stat-err">–</span><small>Fehler</small></div>
+            </div>
+            <button class="btn btn-ghost btn-block" id="number-save">💾 KI speichern</button>
+            <button class="btn btn-ghost btn-block" id="number-load">📂 KI laden</button>
+            <input type="file" id="number-load-file" accept="application/json" hidden />
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================================
+         SO FUNKTIONIERT'S
+    ============================================================= -->
+    <section class="panel" id="panel-howto">
+      <div class="module-head">
+        <h2>💡 So funktioniert deine KI wirklich</h2>
+        <p class="muted">Hier ist kein Trick drin. Alles, was du siehst, ist echte Rechnerei.</p>
+      </div>
+
+      <div class="howto-grid">
+        <article class="card">
+          <h3>1. Die KI startet mit Zufall</h3>
+          <p>
+            Im Inneren steckt ein <strong>neuronales Netz</strong>: viele Zahlen
+            („Gewichte"), die am Anfang <em>zufällig</em> sind. Deshalb liegt sie
+            am Anfang fast immer daneben. Genau wie ein Baby.
+          </p>
+        </article>
+        <article class="card">
+          <h3>2. Beispiele sind die Nahrung</h3>
+          <p>
+            Jedes Beispiel, das du hinzufügst, ist ein Hinweis. Viele Beispiele
+            bilden zusammen ein <strong>Muster</strong>. Wenige Beispiele = die KI
+            rät. Viele gute Beispiele = die KI wird schlau.
+          </p>
+        </article>
+        <article class="card">
+          <h3>3. Fehler → Korrektur</h3>
+          <p>
+            Die KI rät, vergleicht mit der richtigen Antwort und berechnet ihren
+            <strong>Fehler</strong>. Dann dreht sie ihre Zahlen ein kleines
+            bisschen in die richtige Richtung. Das nennt man
+            <strong>Backpropagation</strong>.
+          </p>
+        </article>
+        <article class="card">
+          <h3>4. Die Lernkurve</h3>
+          <p>
+            Jedes Mal, wenn du „Lernen lassen" klickst, läuft dieser Vorgang
+            hunderte Male. Die blaue Linie im Diagramm ist der Fehler: Sie muss
+            <strong>nach unten</strong> gehen. Bleibt sie flach, fehlen Beispiele.
+          </p>
+        </article>
+        <article class="card">
+          <h3>5. Warum die KI Fehler macht</h3>
+          <ul class="tick-list">
+            <li><strong>Zu wenige Beispiele:</strong> Sie hat noch kein Muster gesehen.</li>
+            <li><strong>Einseitige Beispiele:</strong> Nur Äpfel gezeigt → sie hält alles für Obst.</li>
+            <li><strong>Widersprüche:</strong> Dasselbe Wort in zwei Schubladen verwirrt sie.</li>
+            <li><strong>Falsche Merkmale:</strong> Bei Bildern zählt die Form, nicht die Farbe.</li>
+          </ul>
+        </article>
+        <article class="card highlight">
+          <h3>6. Das Wichtigste</h3>
+          <p>
+            Eine KI ist <strong>nicht klug geboren</strong> und weiß nichts von selbst.
+            Sie spiegelt nur, was wir ihr zeigen. Deshalb ist es so wichtig,
+            <em>wer</em> die Beispiele aussucht – nämlich <strong>du</strong>.
+          </p>
+        </article>
+      </div>
+
+      <div class="card">
+        <h3>🔬 Für neugierige Forscher:innen</h3>
+        <p class="muted">
+          Drücke <kbd>F12</kbd> und öffne die Konsole. Mit <code>window.KI</code>
+          kannst du direkt in die Gewichte deiner KI schauen.
+        </p>
+        <pre class="code-block"><code>// Alle Module ansehen
+console.log(window.KI);
+
+// Das neuronale Netz der Wörter-KI
+console.log(window.KI.text.net);
+
+// Was denkt die KI bei einem Wort?
+console.log(window.KI.text.predict("Apfel"));</code></pre>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>
+      🤖 <strong>Meine KI-Werkstatt</strong> – eine echte KI zum Selber-Beibringen.
+      Alles läuft in deinem Browser. Nichts wird ins Internet geschickt.
+    </p>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- ====================== SKRIPTE ====================== -->
+  <script src="js/nn.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/text-ai.js"></script>
+  <script src="js/image-ai.js"></script>
+  <script src="js/number-ai.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

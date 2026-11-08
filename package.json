@@ -1,0 +1,17 @@
+{
+  "name": "meine-ki-werkstatt",
+  "version": "1.0.0",
+  "description": "Eine echte KI zum Selber-Beibringen für Kinder. Läuft komplett im Browser.",
+  "private": true,
+  "scripts": {
+    "start": "python3 -m http.server 12000",
+    "test": "node tests/nn-test.js",
+    "test:browser": "node tests/browser-test.js",
+    "test:all": "node tests/nn-test.js && node tests/browser-test.js"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.40.0"
+  },
+  "keywords": ["ki", "künstliche-intelligenz", "neuronales-netz", "bildung", "kinder"],
+  "license": "MIT"
+}
