@@ -1,0 +1,136 @@
+{
+  "id": "pmw80kwg93yr",
+  "moduleKey": "text",
+  "name": "Meine erste Wörter-KI",
+  "createdAt": "2026-11-08T15:55:49.449Z",
+  "updatedAt": "2026-11-08T15:55:55.438Z",
+  "data": {
+    "categories": [
+      {
+        "name": "mit SCH",
+        "color": "#4d96ff"
+      },
+      {
+        "name": "ohne SCH",
+        "color": "#6bcb77"
+      }
+    ],
+    "examples": [
+      {
+        "word": "schule",
+        "catIndex": 0
+      },
+      {
+        "word": "schuh",
+        "catIndex": 0
+      },
+      {
+        "word": "schaf",
+        "catIndex": 0
+      },
+      {
+        "word": "fisch",
+        "catIndex": 0
+      },
+      {
+        "word": "tisch",
+        "catIndex": 0
+      },
+      {
+        "word": "wäsche",
+        "catIndex": 0
+      },
+      {
+        "word": "tasche",
+        "catIndex": 0
+      },
+      {
+        "word": "flasche",
+        "catIndex": 0
+      },
+      {
+        "word": "wunsch",
+        "catIndex": 0
+      },
+      {
+        "word": "frosch",
+        "catIndex": 0
+      },
+      {
+        "word": "schlüssel",
+        "catIndex": 0
+      },
+      {
+        "word": "schwester",
+        "catIndex": 0
+      },
+      {
+        "word": "schiff",
+        "catIndex": 0
+      },
+      {
+        "word": "dusche",
+        "catIndex": 0
+      },
+      {
+        "word": "haus",
+        "catIndex": 1
+      },
+      {
+        "word": "baum",
+        "catIndex": 1
+      },
+      {
+        "word": "buch",
+        "catIndex": 1
+      },
+      {
+        "word": "hand",
+        "catIndex": 1
+      },
+      {
+        "word": "sonne",
+        "catIndex": 1
+      },
+      {
+        "word": "mond",
+        "catIndex": 1
+      },
+      {
+        "word": "regen",
+        "catIndex": 1
+      },
+      {
+        "word": "blume",
+        "catIndex": 1
+      },
+      {
+        "word": "katze",
+        "catIndex": 1
+      },
+      {
+        "word": "hund",
+        "catIndex": 1
+      },
+      {
+        "word": "garten",
+        "catIndex": 1
+      },
+      {
+        "word": "blatt",
+        "catIndex": 1
+      },
+      {
+        "word": "wolke",
+        "catIndex": 1
+      },
+      {
+        "word": "stern",
+        "catIndex": 1
+      }
+    ],
+    "trained": false,
+    "lastAccuracy": null,
+    "net": null
+  }
+}
