@@ -20,6 +20,8 @@
       </div>
     </div>
 
+    <button class="sync-badge local" id="sync-status" title="Fortschritt speichern">💾 0 KIs</button>
+
     <div class="brain-meter" title="Wie viele Beispiele deine KI schon gesehen hat">
       <span class="brain-icon" aria-hidden="true">🧠</span>
       <div>
@@ -120,6 +122,12 @@
           „kurze Wörter". Aber sie kann nicht lernen, dass ein Apfel Obst ist, weil
           „Apfel" und „Birne" sich als Buchstaben nicht ähnlicher sind als „Apfel" und „Hund".
         </div>
+      </div>
+
+      <div class="project-section">
+        <h3 class="project-heading">🤖 Meine Wörter-KIs</h3>
+        <p class="muted project-hint">Du kannst mehrere KIs haben. Jede lernt für sich allein – und jede kannst du löschen.</p>
+        <div id="text-projects"></div>
       </div>
 
       <div class="layout-2col">
@@ -223,6 +231,12 @@
         </div>
       </div>
 
+      <div class="project-section">
+        <h3 class="project-heading">🤖 Meine Bild-KIs</h3>
+        <p class="muted project-hint">Du kannst mehrere KIs haben. Jede lernt für sich allein – und jede kannst du löschen.</p>
+        <div id="image-projects"></div>
+      </div>
+
       <div class="layout-2col">
 
         <div class="column">
@@ -323,6 +337,12 @@
           Wenn du nur bis 5 zeigst, weiß sie nicht, was bei 100 passiert. Das nennt man
           „Extrapolation" – und genau daran scheitern auch echte KIs.
         </div>
+      </div>
+
+      <div class="project-section">
+        <h3 class="project-heading">🤖 Meine Zahlen-KIs</h3>
+        <p class="muted project-hint">Du kannst mehrere KIs haben. Jede lernt für sich allein – und jede kannst du löschen.</p>
+        <div id="number-projects"></div>
       </div>
 
       <div class="layout-2col">
@@ -473,7 +493,53 @@ console.log(window.KI.text.predict("Apfel"));</code></pre>
       </div>
     </section>
 
+
   </main>
+
+  <!-- ============================================================
+       CLOUD-SPEICHER: Fortschritt ins GitHub-Repository
+  ============================================================= -->
+  <div class="cloud-overlay" id="cloud-overlay">
+    <div class="cloud-dialog" role="dialog" aria-labelledby="cloud-title">
+      <button class="cloud-x" id="cloud-close" aria-label="Schließen">✕</button>
+      <h3 id="cloud-title">☁️ Fortschritt im Repository speichern</h3>
+      <p class="muted">
+        Damit deine KIs nicht nur in diesem Browser leben, können sie ihren
+        Fortschritt in dein <strong>eigenes GitHub-Repository</strong> schreiben.
+        Dann kannst du sie von jedem Computer aus weiter trainieren.
+      </p>
+
+      <details class="cloud-help">
+        <summary>🔑 Wie bekomme ich einen Schlüssel? (kurze Anleitung)</summary>
+        <ol>
+          <li>Bei <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">GitHub → Fine-grained tokens</a> einloggen.</li>
+          <li><em>Generate new token</em> anklicken.</li>
+          <li>Unter <em>Repository access</em>: <strong>Only select repositories</strong> → dein Repository auswählen.</li>
+          <li>Unter <em>Permissions → Repository permissions</em>: <strong>Contents</strong> auf <strong>Read and write</strong> stellen.</li>
+          <li>Token erzeugen und hier unten einfügen.</li>
+        </ol>
+        <p class="muted">
+          Der Schlüssel bleibt <strong>nur in deinem Browser</strong> und wird
+          nirgendwohin geschickt außer an GitHub selbst.
+        </p>
+      </details>
+
+      <label class="cloud-label">Repository (Besitzer/Name)</label>
+      <input type="text" id="cloud-repo" placeholder="Dealwirth/ki-werkstatt" />
+
+      <label class="cloud-label">GitHub-Schlüssel (Token)</label>
+      <input type="password" id="cloud-token" placeholder="github_pat_…" autocomplete="off" />
+
+      <div class="cloud-buttons">
+        <button class="btn btn-primary" id="cloud-connect">Verbinden</button>
+        <button class="btn btn-ghost" id="cloud-save-all">☁️ Alles speichern</button>
+        <button class="btn btn-ghost" id="cloud-load-all">⬇️ Alles laden</button>
+      </div>
+      <button class="btn btn-danger btn-small" id="cloud-forget">Schlüssel vergessen</button>
+
+      <p class="cloud-status" id="cloud-status"></p>
+    </div>
+  </div>
 
   <footer class="footer">
     <p>
@@ -487,6 +553,8 @@ console.log(window.KI.text.predict("Apfel"));</code></pre>
   <!-- ====================== SKRIPTE ====================== -->
   <script src="js/nn.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/projects.js"></script>
   <script src="js/text-ai.js"></script>
   <script src="js/image-ai.js"></script>
   <script src="js/number-ai.js"></script>

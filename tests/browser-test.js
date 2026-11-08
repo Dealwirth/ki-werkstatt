@@ -47,7 +47,7 @@ const URL = process.env.TEST_URL || "http://localhost:12000/index.html";
   check("window.KI vorhanden", await page.evaluate(() => !!window.KI));
   check("NN-Engine geladen", await page.evaluate(() => !!window.NN && !!window.NN.NeuralNet));
   check("5 Tabs vorhanden", (await page.locator(".tab").count()) === 5);
-  check("11 Abzeichen angezeigt", (await page.locator(".badge").count()) === 11);
+  check("13 Abzeichen angezeigt", (await page.locator(".badge").count()) === 13);
   check("4 Muster-Knöpfe vorhanden", (await page.locator("[data-preset]").count()) === 4);
 
   console.log("\n[2] Navigation");
@@ -281,12 +281,79 @@ const URL = process.env.TEST_URL || "http://localhost:12000/index.html";
   console.log("    nach Neuladen: schmetterling ->", afterReload.trim());
   check("trainierte KI überlebt Neuladen", afterReload.includes("mit SCH"), afterReload);
 
-  console.log("\n[8] Konsole sauber?");
+
+  // -------------------------------------------------------------------------
+  console.log("\n[9] Mehrere KIs verwalten");
+  await page.click('.tab[data-tab="text"]');
+  await page.waitForTimeout(300);
+  const startCount = await page.evaluate(() => window.KI.text.projects.list().length);
+  check("Mindestens 1 KI vorhanden", startCount >= 1, "gefunden: " + startCount);
+
+  // Neue KI ueber den Knopf anlegen
+  page.once("dialog", async (d) => { await d.accept("Zweit-KI"); });
+  const newBtnVisible = await page.locator("#text-projects .btn-primary").isVisible();
+  check("Knopf 'Neue KI' sichtbar", newBtnVisible);
+  if (newBtnVisible) {
+    await page.click("#text-projects .btn-primary");
+    await page.waitForTimeout(500);
+  }
+  const afterCreate = await page.evaluate(() => window.KI.text.projects.list().length);
+  check("KI wurde angelegt", afterCreate === startCount + 1, "gefunden: " + afterCreate);
+  const newActive = await page.evaluate(() => { const p = window.KI.text.projects.active(); return p ? p.name : null; });
+  check("Neue KI ist aktiv", newActive === "Zweit-KI", "aktiv: " + newActive);
+  check("Projekt-Chips angezeigt", (await page.locator("#text-projects .project-chip").count()) === afterCreate);
+
+  // Fortschritt ist getrennt
+  const emptyCats = await page.evaluate(() => window.KI.text.state.categories.length);
+  check("Neue KI startet leer", emptyCats === 0, "gefunden: " + emptyCats);
+  const firstId = await page.evaluate(() => window.KI.text.projects.list()[0].id);
+  await page.evaluate((id) => window.KI.text.projects.switchTo(id), firstId);
+  await page.waitForTimeout(500);
+  const firstCats = await page.evaluate(() => window.KI.text.state.categories.length);
+  check("Erste KI behaelt ihren Fortschritt", firstCats === 2, "gefunden: " + firstCats);
+
+  // Loeschen ueber den echten Papierkorb-Knopf der zweiten KI
+  page.once("dialog", async (d) => { await d.accept(); });
+  await page.locator("#text-projects .project-chip").nth(1).locator(".project-icon.danger").click();
+  await page.waitForTimeout(500);
+  const afterDelete = await page.evaluate(() => window.KI.text.projects.list().length);
+  check("KI geloescht", afterDelete === startCount, "gefunden: " + afterDelete);
+  check("Leiste zeigt richtige Anzahl", (await page.locator("#text-projects .project-chip").count()) === startCount);
+
+  // -------------------------------------------------------------------------
+  console.log("\n[10] Cloud-Speicher-Oberflaeche");
+  check("Sync-Anzeige vorhanden", await page.evaluate(() => !!document.getElementById("sync-status")));
+  check("Speicher-Modul geladen", await page.evaluate(() => !!window.Storage));
+  check("Ohne Schluessel: lokaler Modus", await page.evaluate(() => !window.Storage.isCloudEnabled()));
+  await page.click("#sync-status");
+  await page.waitForTimeout(400);
+  check("Dialog oeffnet sich", await page.evaluate(() => document.getElementById("cloud-overlay").classList.contains("open")));
+  const repoPrefill = await page.inputValue("#cloud-repo");
+  check("Repository ist vorbelegt", repoPrefill.includes("/"), repoPrefill);
+  // Ein ungueltiger Schluessel darf nicht abstuerzen
+  await page.fill("#cloud-token", "ungueltig123");
+  await page.click("#cloud-connect");
+  await page.waitForTimeout(3000);
+  const cloudMsg = await page.textContent("#cloud-status");
+  check("Ungueltiger Schluessel wird sauber gemeldet", cloudMsg.includes("❌") || cloudMsg.includes("ungültig") || cloudMsg.includes("Keine Verbindung"), cloudMsg.trim());
+  await page.click("#cloud-forget");
+  await page.waitForTimeout(300);
+  check("Schluessel wieder vergessen", (await page.inputValue("#cloud-token")) === "");
+  await page.click("#cloud-close");
+  await page.waitForTimeout(300);
+  check("Dialog schliesst wieder", !(await page.evaluate(() => document.getElementById("cloud-overlay").classList.contains("open"))));
+
+  console.log("\n[11] Konsole sauber?");
   if (errors.length) {
     console.log("   Fehler gefunden:");
     errors.forEach((e) => console.log("   ! " + e));
   }
-  check("Keine Konsolenfehler", errors.length === 0, errors.join(" | "));
+  // Der absichtliche Falsch-Schluessel-Test oben erzeugt bei GitHub einen
+  // 401-Fehler. Den zaehlen wir nicht als Fehler der Seite.
+  const realErrors = errors.filter(
+    (e) => !/401|Failed to load resource/i.test(e)
+  );
+  check("Keine Konsolenfehler", realErrors.length === 0, realErrors.join(" | "));
 
   console.log(`\n=== Ergebnis: ${passed} bestanden, ${failed} fehlgeschlagen ===`);
   await page.screenshot({ path: "/tmp/ki-werkstatt.png", fullPage: false });

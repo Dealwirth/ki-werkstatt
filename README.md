@@ -50,6 +50,55 @@ Regel dahinter. Sie interpoliert sehr gut (Fehler unter 0,05), kann aber nicht
 über ihre Beispiele hinausdenken (Extrapolation) – auch das ist eine ehrliche,
 lehrreiche Grenze neuronaler Netze.
 
+## Mehrere KIs gleichzeitig – und Fortschritt sichern
+
+### 🤖 Deine eigene KI-Fabrik
+
+Über jedem Lern-Bereich liegt eine Leiste **„Meine …-KIs"**. Dort kannst du:
+
+- **➕ Neue KI** anlegen – jede lernt für sich allein (eigene Schubladen,
+  eigene Beispiele, eigenes Training).
+- **Wechseln**, indem du auf den Namen tippst. Jede KI hat ihren eigenen
+  Fortschritt; nichts vermischt sich.
+- **✏️ Umbenennen**, damit du den Überblick behältst.
+- **🗑 Löschen**, wenn eine KI weg soll – ihr Wissen wird dann gelöscht.
+  (Auf der Startseite gibt es zusätzlich **„Alles löschen"**.)
+
+So kannst du z. B. eine „SCH-KI", eine „IE-KI" und eine „kurze Wörter-KI"
+nebeneinander aufbauen und vergleichen.
+
+### ☁️ Fortschritt ins eigene Repository speichern
+
+Normalerweise lebt der Fortschritt nur in **diesem** Browser. Damit du von
+jedem Computer weitertrainieren kannst, gibt es oben rechts die Anzeige
+**💾 KIs**. Ein Tipp darauf öffnet den Cloud-Speicher:
+
+1. Bei GitHub einen **fein abgestuften Schlüssel** (Token) anlegen:
+   *Fine-grained token* → *Only select repositories* → dein Repository →
+   *Permissions → Contents: Read and write*.
+2. Repository und Schlüssel in die App eintragen und **Verbinden** tippen.
+3. **☁️ Alles speichern** schreibt jede KI in dein Repository.
+   **⬇️ Alles laden** holt sie auf einem anderen Gerät wieder zurück.
+
+Der Schlüssel bleibt **nur im Browser** (localStorage) und geht nirgendwohin
+außer an GitHub selbst. Über **„Schlüssel vergessen"** löschst du ihn wieder.
+Ohne Schlüssel funktioniert alles wie gewohnt weiter – nur eben lokal.
+
+Gespeichert wird unter `ai-projects/<bereich>/<id>.json` – eine Datei pro KI,
+mit Kategorien, Beispielen und dem trainierten Netz.
+
+## Gratis veröffentlichen (GitHub Pages)
+
+Damit Freunde und Familie die Werkstatt im Browser öffnen können:
+
+1. Den Inhalt dieses Projekts in ein GitHub-Repository legen.
+2. Im Repository auf **Settings → Pages**.
+3. Unter *Source* **Deploy from a branch**, Branch **main**, Ordner **/ (root)**.
+4. Nach kurzer Zeit ist die Seite erreichbar unter
+   `https://<benutzername>.github.io/<repository>/`.
+
+Es ist kein Server und kein Bauen nötig – die Seite ist reines HTML/CSS/JS.
+
 ## Unter der Haube
 
 | Datei | Aufgabe |
@@ -59,7 +108,9 @@ lehrreiche Grenze neuronaler Netze.
 | `js/text-ai.js` | Wörter-Modul (N-Gramm-Features über Hashing) |
 | `js/image-ai.js` | Bild-Modul (16×16-Raster, Zentrierung, Augmentation) |
 | `js/number-ai.js` | Zahlen-Modul (Normalisierung, Regression, Funktionsplot) |
-| `js/app.js` | Navigation, Maskottchen „Nullo", Abzeichen, Fortschritt |
+| `js/storage.js` | Speicher-Backend: Browser-Speicher **und** GitHub-Repository |
+| `js/projects.js` | Verwaltung mehrerer KIs pro Bereich (anlegen/wechseln/löschen) |
+| `js/app.js` | Navigation, Maskottchen „Nullo", Abzeichen, Cloud-Dialog |
 | `index.html` | Aufbau und Inhalte |
 | `css/style.css` | Freundliches, kindgerechtes Design |
 
@@ -75,13 +126,15 @@ window.KI                          // alle drei KIs
 window.KI.text.net                 // das neuronale Netz der Wörter-KI
 window.KI.text.predict("Apfel")    // was die KI denkt
 window.KI.badges                   // alle Abzeichen
+window.KI.text.projects.list()     // alle Wörter-KIs
+window.Storage.isCloudEnabled()    // ist ein Repository verbunden?
 ```
 
 ## Tests
 
 ```bash
 node tests/nn-test.js       # 14 Tests: die Engine (XOR, Regression, Speichern)
-node tests/browser-test.js  # 33 Tests: die ganze Seite im echten Browser
+node tests/browser-test.js  # 50 Tests: die ganze Seite im echten Browser
 ```
 
 Der Browser-Test braucht `playwright-core` und Chromium:
@@ -93,7 +146,13 @@ node tests/browser-test.js
 
 Getestet wird unter anderem: echtes Lernen (XOR, Regel `2x+1`), Vorhersage auf
 **ungesehenen** Wörtern und Zeichnungen, Selbst-Test mit Holdout-Daten,
-Speichern/Laden, Persistenz über einen Seiten-Neuladen und eine saubere Konsole.
+Speichern/Laden, Persistenz über einen Seiten-Neuladen, das Anlegen/Wechseln/
+Löschen mehrerer KIs und die Cloud-Oberfläche – plus eine saubere Konsole.
+
+Zusätzlich gibt es `tests/cloud-test.js`: Es lädt die Seite, verbindet sie mit
+einem echten GitHub-Repository, speichert trainierten Fortschritt, lädt ihn in
+einem **frischen Browser** zurück und prüft, dass die KI danach sofort richtig
+antwortet (Token über die Umgebungsvariable `GITHUB_TOKEN`).
 
 ## Ehrlichkeit als Prinzip
 

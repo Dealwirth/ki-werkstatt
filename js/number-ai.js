@@ -12,6 +12,17 @@
 const createNumberAI = () => {
   "use strict";
 
+  // Verwaltet mehrere Zahlen-KIs. Jede hat ihren eigenen Fortschritt.
+  const projects = createProjects("number", {
+    defaultName: "Meine erste Zahlen-KI",
+    onSwitch: () => {
+      if (el.projectBar) {
+        renderProjects();
+        applySnapshot(projects.loadActive());
+      }
+    },
+  });
+
   const state = {
     examples: [],     // [{x, y}]
     net: null,
@@ -340,7 +351,11 @@ const createNumberAI = () => {
   // ---------------------------------------------------------------------------
 
   function persist() {
-    UI.save("number", {
+    projects.saveActive(snapshot());
+  }
+
+  function snapshot() {
+    return {
       examples: state.examples,
       trained: state.trained,
       ranges: {
@@ -348,17 +363,12 @@ const createNumberAI = () => {
         yMin: state.yMin, yMax: state.yMax,
       },
       net: state.net && state.trained ? state.net.toCompact() : null,
-    });
+    };
   }
 
-  function restore() {
-    const data = UI.load("number");
-    if (!data) {
-      buildNet();
-      return;
-    }
-    state.examples = data.examples || [];
-    if (data.ranges) {
+  function applySnapshot(data) {
+    state.examples = (data && data.examples) || [];
+    if (data && data.ranges) {
       state.xMin = data.ranges.xMin;
       state.xMax = data.ranges.xMax;
       state.yMin = data.ranges.yMin;
@@ -366,7 +376,7 @@ const createNumberAI = () => {
     } else {
       computeRanges();
     }
-    if (data.net) {
+    if (data && data.net) {
       try {
         state.net = NN.NeuralNet.fromCompact(data.net);
         state.trained = !!data.trained;
@@ -376,6 +386,53 @@ const createNumberAI = () => {
     } else {
       buildNet();
     }
+    renderExamples();
+    updateStats();
+    drawChart();
+    drawPlot();
+    refreshGlobal();
+    if (state.trained) setStatus("Trainiert! Frag mich nach einer Zahl.");
+    else setStatus("Noch nicht trainiert.");
+    el.answer.className = "answer-box";
+    el.answer.innerHTML = '<p class="muted">Noch keine Vorhersage.</p>';
+  }
+
+  function renderProjects() {
+    UI.renderProjectBar(el.projectBar, {
+      projects: projects.list(),
+      activeId: projects.activeId(),
+      limit: projects.limit,
+      onSelect: (id) => {
+        if (id === projects.activeId()) return;
+        projects.switchTo(id);
+      },
+      onNew: () => {
+        const name = prompt("Wie soll die neue Zahlen-KI heißen?", "Meine Zahlen-KI");
+        if (name === null) return;
+        const p = projects.create(name, true);
+        if (p) UI.toast(`„${p.name}" ist fertig. Zeig ihr jetzt Zahlen!`, "success");
+      },
+      onRename: (id) => {
+        const p = projects.list().find((x) => x.id === id);
+        const name = prompt("Neuer Name:", p ? p.name : "");
+        if (name === null) return;
+        projects.rename(id, name);
+        renderProjects();
+      },
+      onDelete: (id) => {
+        const p = projects.list().find((x) => x.id === id);
+        if (!confirm(`Die KI „${p ? p.name : ""}" wirklich löschen? Ihr ganzes Wissen geht verloren.`)) return;
+        projects.remove(id);
+        renderProjects();
+        UI.toast("KI gelöscht. 🗑", "info");
+      },
+    });
+  }
+
+  function restore() {
+    projects.init();
+    renderProjects();
+    applySnapshot(projects.loadActive());
   }
 
   function saveToFile() {
@@ -434,7 +491,8 @@ const createNumberAI = () => {
     el.progress.style.width = "0%";
     el.answer.className = "answer-box";
     el.answer.innerHTML = '<p class="muted">Noch keine Vorhersage.</p>';
-    UI.remove("number");
+    persist();
+    refreshGlobal();
   }
 
   // ---------------------------------------------------------------------------
@@ -443,6 +501,7 @@ const createNumberAI = () => {
 
   function init() {
     el = {
+      projectBar: document.getElementById("number-projects"),
       in: document.getElementById("number-in"),
       out: document.getElementById("number-out"),
       add: document.getElementById("number-add"),
@@ -511,6 +570,8 @@ const createNumberAI = () => {
   return {
     init,
     reset,
+    renderProjects,
+    projects,
     get net() { return state.net; },
     get state() { return state; },
   };

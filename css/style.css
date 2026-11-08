@@ -52,6 +52,242 @@ section[id], .card, #draw-canvas, #test-canvas {
 }
 
 /* --------------------------------------------------------------------------
+   Projekt-Leiste: mehrere KIs verwalten
+   -------------------------------------------------------------------------- */
+
+.project-section {
+  margin-bottom: 24px;
+}
+
+.project-heading {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+
+.project-hint {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+}
+
+.project-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--card-2, #f4f6fb);
+  border: 1px dashed #c9d2e6;
+}
+
+.project-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.project-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid #d9e0ee;
+  padding: 2px 4px 2px 12px;
+  transition: all 0.15s ease;
+}
+
+.project-chip.active {
+  border-color: var(--blue, #4d96ff);
+  background: #eaf2ff;
+  box-shadow: 0 2px 10px rgba(77, 150, 255, 0.25);
+}
+
+.project-name {
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink, #262b3d);
+  cursor: pointer;
+  padding: 4px 2px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-icon {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 5px 6px;
+  border-radius: 999px;
+  line-height: 1;
+  transition: background 0.15s ease;
+}
+
+.project-icon:hover {
+  background: #eef1f7;
+}
+
+.project-icon.danger:hover {
+  background: #ffe3e3;
+}
+
+.empty-note {
+  color: #8a93a8;
+  font-size: 0.9rem;
+  padding: 6px 2px;
+}
+
+.btn-small {
+  padding: 8px 14px;
+  font-size: 0.88rem;
+}
+
+/* --------------------------------------------------------------------------
+   Sync-Anzeige in der Kopfleiste
+   -------------------------------------------------------------------------- */
+
+.sync-badge {
+  border: none;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 8px 13px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sync-badge:hover {
+  transform: translateY(-1px);
+}
+
+.sync-badge.local {
+  background: #fff3d6;
+  color: #8a5a00;
+  box-shadow: 0 2px 8px rgba(138, 90, 0, 0.15);
+}
+
+.sync-badge.cloud {
+  background: #dcf6e6;
+  color: #1a7f47;
+  box-shadow: 0 2px 8px rgba(26, 127, 71, 0.18);
+}
+
+/* --------------------------------------------------------------------------
+   Cloud-Dialog
+   -------------------------------------------------------------------------- */
+
+.cloud-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 24, 38, 0.5);
+  backdrop-filter: blur(3px);
+  z-index: 1000;
+  padding: 20px;
+  overflow: auto;
+}
+
+.cloud-overlay.open {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.cloud-dialog {
+  position: relative;
+  background: #fff;
+  border-radius: 20px;
+  padding: 26px;
+  max-width: 540px;
+  width: 100%;
+  margin: auto;
+  box-shadow: 0 24px 70px rgba(20, 24, 38, 0.3);
+}
+
+.cloud-dialog h3 {
+  margin: 0 0 10px;
+}
+
+.cloud-x {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  border: none;
+  background: #eef1f7;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.cloud-help {
+  background: #f4f6fb;
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin: 14px 0;
+  font-size: 0.9rem;
+}
+
+.cloud-help summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.cloud-help ol {
+  margin: 10px 0 6px;
+  padding-left: 20px;
+}
+
+.cloud-help li {
+  margin-bottom: 6px;
+}
+
+.cloud-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin: 12px 0 4px;
+  color: #5a6478;
+}
+
+.cloud-dialog input {
+  width: 100%;
+}
+
+.cloud-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.cloud-status {
+  margin: 14px 0 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  min-height: 1.2em;
+  color: #5a6478;
+}
+
+.cloud-status.ok {
+  color: #1a7f47;
+}
+
+.cloud-status.error {
+  color: #c02b2b;
+}
+
+/* --------------------------------------------------------------------------
    Kopfbereich
    -------------------------------------------------------------------------- */
 

@@ -23,6 +23,17 @@
 const createTextAI = () => {
   "use strict";
 
+  // Verwaltet mehrere Woerter-KIs. Jede hat ihren eigenen Fortschritt.
+  const projects = createProjects("text", {
+    defaultName: "Meine erste Wörter-KI",
+    onSwitch: () => {
+      if (el.projectBar) {
+        renderProjects();
+        applySnapshot(projects.loadActive());
+      }
+    },
+  });
+
   // Der Fingerabdruck hat 1024 Zahlen. Je groesser, desto weniger
   // Buchstabenkombinationen "kollidieren" (sich denselben Platz teilen).
   const FEATURES = 1024;
@@ -485,25 +496,26 @@ const createTextAI = () => {
   // ---------------------------------------------------------------------------
 
   function persist() {
-    UI.save("text", {
+    // Erst in die Projektliste, dann in den Projekt-Speicher
+    projects.saveActive(snapshot());
+  }
+
+  /** Alles, was zum Fortschritt dieser KI gehoert. */
+  function snapshot() {
+    return {
       categories: state.categories,
       examples: state.examples,
       trained: state.trained,
       lastAccuracy: state.lastAccuracy,
       net: state.net && state.trained ? state.net.toCompact() : null,
-    });
+    };
   }
 
-  function restore() {
-    const data = UI.load("text");
-    if (!data) {
-      buildNet();
-      return;
-    }
-    state.categories = data.categories || [];
-    state.examples = data.examples || [];
-    state.lastAccuracy = data.lastAccuracy ?? null;
-    if (data.net) {
+  function applySnapshot(data) {
+    state.categories = (data && data.categories) || [];
+    state.examples = (data && data.examples) || [];
+    state.lastAccuracy = (data && data.lastAccuracy) ?? null;
+    if (data && data.net) {
       try {
         state.net = NN.NeuralNet.fromCompact(data.net);
         state.trained = !!data.trained;
@@ -513,6 +525,58 @@ const createTextAI = () => {
     } else {
       buildNet();
     }
+    renderCategories();
+    renderExamples();
+    updateStats();
+    updateGlobalSamples();
+    drawChart();
+    if (state.trained && state.lastAccuracy !== null) {
+      setStatus(`Trainiert! Sicherheit ${Math.round(state.lastAccuracy * 100)}%`);
+    } else {
+      setStatus("Noch nicht trainiert.");
+    }
+    el.answer.className = "answer-box";
+    el.answer.innerHTML = '<p class="muted">Noch keine Antwort. Stell mir eine Frage!</p>';
+    el.probs.innerHTML = "";
+  }
+
+  /** Baut die Projekt-Leiste neu auf. */
+  function renderProjects() {
+    UI.renderProjectBar(el.projectBar, {
+      projects: projects.list(),
+      activeId: projects.activeId(),
+      limit: projects.limit,
+      onSelect: (id) => {
+        if (id === projects.activeId()) return;
+        projects.switchTo(id);
+      },
+      onNew: () => {
+        const name = prompt("Wie soll die neue Wörter-KI heißen?", "Meine Wörter-KI");
+        if (name === null) return;
+        const p = projects.create(name, true);
+        if (p) UI.toast(`„${p.name}" ist fertig. Bring ihr jetzt Wörter bei!`, "success");
+      },
+      onRename: (id) => {
+        const p = projects.list().find((x) => x.id === id);
+        const name = prompt("Neuer Name:", p ? p.name : "");
+        if (name === null) return;
+        projects.rename(id, name);
+        renderProjects();
+      },
+      onDelete: (id) => {
+        const p = projects.list().find((x) => x.id === id);
+        if (!confirm(`Die KI „${p ? p.name : ""}" wirklich löschen? Ihr ganzes Wissen geht verloren.`)) return;
+        projects.remove(id);
+        renderProjects();
+        UI.toast("KI gelöscht. 🗑", "info");
+      },
+    });
+  }
+
+  function restore() {
+    projects.init();
+    renderProjects();
+    applySnapshot(projects.loadActive());
   }
 
   function saveToFile() {
@@ -569,7 +633,8 @@ const createTextAI = () => {
     el.answer.className = "answer-box";
     el.answer.innerHTML = '<p class="muted">Noch keine Antwort. Stell mir eine Frage!</p>';
     el.probs.innerHTML = "";
-    UI.remove("text");
+    persist();
+    updateGlobalSamples();
   }
 
   // ---------------------------------------------------------------------------
@@ -578,6 +643,7 @@ const createTextAI = () => {
 
   function init() {
     el = {
+      projectBar: document.getElementById("text-projects"),
       categories: document.getElementById("text-categories"),
       categoryInput: document.getElementById("text-category-input"),
       addCategory: document.getElementById("text-add-category"),
@@ -661,6 +727,8 @@ const createTextAI = () => {
     init,
     reset,
     predict,
+    renderProjects,
+    projects,
     get net() { return state.net; },
     get state() { return state; },
   };

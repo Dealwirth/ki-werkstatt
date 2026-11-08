@@ -2,3 +2,7 @@ node_modules/
 *.log
 .DS_Store
 .agent_tmp/
+
+# Fortschritt der Kinder-KIs: wird von der App zur Laufzeit ins
+# eigene Repository geschrieben, gehoert aber nicht in den Quellcode.
+ai-projects/

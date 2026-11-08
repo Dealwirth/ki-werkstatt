@@ -7,11 +7,18 @@
     "start": "python3 -m http.server 12000",
     "test": "node tests/nn-test.js",
     "test:browser": "node tests/browser-test.js",
-    "test:all": "node tests/nn-test.js && node tests/browser-test.js"
+    "test:all": "node tests/nn-test.js && node tests/browser-test.js",
+    "test:cloud": "node tests/cloud-test.js"
   },
   "devDependencies": {
     "playwright-core": "^1.40.0"
   },
-  "keywords": ["ki", "künstliche-intelligenz", "neuronales-netz", "bildung", "kinder"],
+  "keywords": [
+    "ki",
+    "künstliche-intelligenz",
+    "neuronales-netz",
+    "bildung",
+    "kinder"
+  ],
   "license": "MIT"
 }

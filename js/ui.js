@@ -169,6 +169,78 @@ const UI = (() => {
   }
 
   // ---------------------------------------------------------------------------
+  // Projekt-Leiste: mehrere KIs verwalten (anlegen, wechseln, umbenennen, löschen)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * @param {HTMLElement} container
+   * @param {object} cfg
+   *   cfg.projects  Liste [{id, name, updatedAt}]
+   *   cfg.activeId  id der gerade offenen KI
+   *   cfg.onSelect  (id) => {}
+   *   cfg.onNew     () => {}
+   *   cfg.onRename  (id) => {}
+   *   cfg.onDelete  (id) => {}
+   *   cfg.limit     hoechste Anzahl
+   */
+  function renderProjectBar(container, cfg) {
+    if (!container) return;
+    container.innerHTML = "";
+
+    const bar = document.createElement("div");
+    bar.className = "project-bar";
+
+    const list = document.createElement("div");
+    list.className = "project-list";
+
+    cfg.projects.forEach((p) => {
+      const isActive = p.id === cfg.activeId;
+      const chip = document.createElement("div");
+      chip.className = "project-chip" + (isActive ? " active" : "");
+
+      const name = document.createElement("button");
+      name.className = "project-name";
+      name.textContent = p.name;
+      name.title = isActive ? "Diese KI ist geöffnet" : "Diese KI öffnen";
+      name.addEventListener("click", () => cfg.onSelect && cfg.onSelect(p.id));
+      chip.appendChild(name);
+
+      if (isActive) {
+        const rename = document.createElement("button");
+        rename.className = "project-icon";
+        rename.textContent = "✏️";
+        rename.title = "Umbenennen";
+        rename.addEventListener("click", () => cfg.onRename && cfg.onRename(p.id));
+        chip.appendChild(rename);
+      }
+
+      const del = document.createElement("button");
+      del.className = "project-icon danger";
+      del.textContent = "🗑";
+      del.title = "Diese KI löschen";
+      del.addEventListener("click", () => cfg.onDelete && cfg.onDelete(p.id));
+      chip.appendChild(del);
+
+      list.appendChild(chip);
+    });
+
+    if (cfg.projects.length === 0) {
+      list.innerHTML = '<span class="empty-note">Noch keine KI vorhanden.</span>';
+    }
+    bar.appendChild(list);
+
+    const addBtn = document.createElement("button");
+    addBtn.className = "btn btn-primary btn-small";
+    addBtn.textContent = "➕ Neue KI";
+    addBtn.disabled = cfg.projects.length >= cfg.limit;
+    if (addBtn.disabled) addBtn.title = `Mehr als ${cfg.limit} KIs werden unübersichtlich.`;
+    addBtn.addEventListener("click", () => cfg.onNew && cfg.onNew());
+    bar.appendChild(addBtn);
+
+    container.appendChild(bar);
+  }
+
+  // ---------------------------------------------------------------------------
   // Speicher (LocalStorage) - der "Notizblock" des Browsers
   // ---------------------------------------------------------------------------
 
@@ -242,6 +314,7 @@ const UI = (() => {
     confetti,
     drawLossChart,
     renderProbabilities,
+    renderProjectBar,
     save,
     load,
     remove,

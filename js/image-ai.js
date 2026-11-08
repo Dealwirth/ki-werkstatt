@@ -16,6 +16,17 @@
 const createImageAI = () => {
   "use strict";
 
+  // Verwaltet mehrere Bild-KIs. Jede hat ihren eigenen Fortschritt.
+  const projects = createProjects("image", {
+    defaultName: "Meine erste Bild-KI",
+    onSwitch: () => {
+      if (el.projectBar) {
+        renderProjects();
+        applySnapshot(projects.loadActive());
+      }
+    },
+  });
+
   const GRID = 16;              // 16x16 = 256 Eingabewerte
   const FEATURES = GRID * GRID;
   const COLORS = [
@@ -627,7 +638,11 @@ const createImageAI = () => {
   // ---------------------------------------------------------------------------
 
   function persist() {
-    UI.save("image", {
+    projects.saveActive(snapshot());
+  }
+
+  function snapshot() {
+    return {
       categories: state.categories,
       examples: state.examples.map((ex) => ({
         label: ex.label,
@@ -636,22 +651,17 @@ const createImageAI = () => {
       trained: state.trained,
       lastAccuracy: state.lastAccuracy,
       net: state.net && state.trained ? state.net.toCompact() : null,
-    });
+    };
   }
 
-  function restore() {
-    const data = UI.load("image");
-    if (!data) {
-      buildNet();
-      return;
-    }
-    state.categories = data.categories || [];
-    state.examples = (data.examples || []).map((ex) => ({
+  function applySnapshot(data) {
+    state.categories = (data && data.categories) || [];
+    state.examples = ((data && data.examples) || []).map((ex) => ({
       label: ex.label,
       data: Float64Array.from(ex.data),
     }));
-    state.lastAccuracy = data.lastAccuracy ?? null;
-    if (data.net) {
+    state.lastAccuracy = (data && data.lastAccuracy) ?? null;
+    if (data && data.net) {
       try {
         state.net = NN.NeuralNet.fromCompact(data.net);
         state.trained = !!data.trained;
@@ -661,6 +671,57 @@ const createImageAI = () => {
     } else {
       buildNet();
     }
+    renderCategories();
+    renderThumbs();
+    updateStats();
+    drawChart();
+    refreshGlobal();
+    if (state.trained && state.lastAccuracy !== null) {
+      setStatus(`Trainiert! Sicherheit ${Math.round(state.lastAccuracy * 100)}%`);
+    } else {
+      setStatus("Noch nicht trainiert.");
+    }
+    el.answer.className = "answer-box";
+    el.answer.innerHTML = '<p class="muted">Zeichne los – ich verrate dir, was ich sehe.</p>';
+    el.probs.innerHTML = "";
+  }
+
+  function renderProjects() {
+    UI.renderProjectBar(el.projectBar, {
+      projects: projects.list(),
+      activeId: projects.activeId(),
+      limit: projects.limit,
+      onSelect: (id) => {
+        if (id === projects.activeId()) return;
+        projects.switchTo(id);
+      },
+      onNew: () => {
+        const name = prompt("Wie soll die neue Bild-KI heißen?", "Meine Bild-KI");
+        if (name === null) return;
+        const p = projects.create(name, true);
+        if (p) UI.toast(`„${p.name}" ist fertig. Male ihr jetzt etwas vor!`, "success");
+      },
+      onRename: (id) => {
+        const p = projects.list().find((x) => x.id === id);
+        const name = prompt("Neuer Name:", p ? p.name : "");
+        if (name === null) return;
+        projects.rename(id, name);
+        renderProjects();
+      },
+      onDelete: (id) => {
+        const p = projects.list().find((x) => x.id === id);
+        if (!confirm(`Die KI „${p ? p.name : ""}" wirklich löschen? Ihr ganzes Wissen geht verloren.`)) return;
+        projects.remove(id);
+        renderProjects();
+        UI.toast("KI gelöscht. 🗑", "info");
+      },
+    });
+  }
+
+  function restore() {
+    projects.init();
+    renderProjects();
+    applySnapshot(projects.loadActive());
   }
 
   function saveToFile() {
@@ -725,7 +786,8 @@ const createImageAI = () => {
     el.probs.innerHTML = "";
     clearCanvas(el.drawCanvas);
     clearCanvas(el.testCanvas);
-    UI.remove("image");
+    persist();
+    refreshGlobal();
   }
 
   // ---------------------------------------------------------------------------
@@ -734,6 +796,7 @@ const createImageAI = () => {
 
   function init() {
     el = {
+      projectBar: document.getElementById("image-projects"),
       categories: document.getElementById("image-categories"),
       categoryInput: document.getElementById("image-category-input"),
       addCategory: document.getElementById("image-add-category"),
@@ -823,6 +886,8 @@ const createImageAI = () => {
     reset,
     predict,
     canvasToVector,
+    renderProjects,
+    projects,
     get net() { return state.net; },
     get state() { return state; },
   };
