@@ -24,7 +24,7 @@ const createProjects = (moduleKey, opts) => {
 
   const INDEX_KEY = `kinderki:projects:${moduleKey}`;
   const DATA_PREFIX = `kinderki:project:${moduleKey}:`;
-  const LIMIT = opts.limit || 12;
+  const LIMIT = opts.limit || Infinity;
 
   let index = { activeId: null, projects: [] };
 
@@ -84,15 +84,11 @@ const createProjects = (moduleKey, opts) => {
 
   /** Legt ein neues Projekt an. opts.withStarter fuellt Beispieldaten ein. */
   function create(name, withStarter) {
-    if (index.projects.length >= LIMIT) {
-      UI.toast(`Mehr als ${LIMIT} KIs werden unübersichtlich. Lösch eine alte!`, "warn");
-      return null;
-    }
     const id = newId();
     const project = {
       id,
       moduleKey,
-      name: (name || "Neue KI").trim().slice(0, 40) || "Neue KI",
+      name: (name || "Neue KI").trim() || "Neue KI",
       createdAt: nowISO(),
       updatedAt: nowISO(),
     };
@@ -107,7 +103,7 @@ const createProjects = (moduleKey, opts) => {
   function rename(id, name) {
     const p = index.projects.find((x) => x.id === id);
     if (!p) return false;
-    p.name = (name || "").trim().slice(0, 40) || p.name;
+    p.name = (name || "").trim() || p.name;
     p.updatedAt = nowISO();
     saveIndex();
     return true;

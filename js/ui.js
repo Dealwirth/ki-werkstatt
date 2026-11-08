@@ -232,8 +232,8 @@ const UI = (() => {
     const addBtn = document.createElement("button");
     addBtn.className = "btn btn-primary btn-small";
     addBtn.textContent = "➕ Neue KI";
-    addBtn.disabled = cfg.projects.length >= cfg.limit;
-    if (addBtn.disabled) addBtn.title = `Mehr als ${cfg.limit} KIs werden unübersichtlich.`;
+    addBtn.disabled = false;
+    addBtn.title = "Eine weitere KI anlegen";
     addBtn.addEventListener("click", () => cfg.onNew && cfg.onNew());
     bar.appendChild(addBtn);
 

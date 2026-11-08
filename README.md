@@ -87,6 +87,55 @@ Ohne Schlüssel funktioniert alles wie gewohnt weiter – nur eben lokal.
 Gespeichert wird unter `ai-projects/<bereich>/<id>.json` – eine Datei pro KI,
 mit Kategorien, Beispielen und dem trainierten Netz.
 
+## Schneller und besser lernen
+
+### ⚡ Wie schnell ist dein Gerät?
+
+Im Bild-Bereich gibt es den Knopf **„Rechenleistung testen"**. Er lässt die
+echte Netz-Engine etwa eine halbe Sekunde rechnen und misst, wie viele
+Trainingsrunden pro Sekunde möglich sind. Daraus entstehen **Empfehlungen**
+(z. B. „etwa 10–14 Bilder pro Sache"), die sich an das Gerät anpassen.
+
+**Ganz wichtig:** Das ist nur ein Vorschlag. Nichts ist Pflicht, und man kann
+jede Empfehlung übergehen. Wer mag, trainiert mit 10 Runden oder mit 5000.
+
+### Was automatisch besser geworden ist
+
+- **Adaptive Lernrate:** Am Anfang große Schritte, später feine. Das Netz
+  kommt schneller in die Nähe der Lösung und wird dann genau.
+- **Frühstopp:** Verbessert sich der Fehler lange nicht mehr, hört das
+  Training von selbst auf. Das spart Zeit, ohne schlechter zu werden.
+- **Trefferquote:** Nach dem Training sagt die KI ehrlich, wie viele ihrer
+  eigenen Beispiele sie richtig erkennt.
+- **Größeres Netz bei schweren Aufgaben:** Mehr Kategorien und mehr Beispiele
+  bedeuten automatisch mehr Neuronen.
+- **Stärkeres Verwackeln:** Die Bild-KI sieht jedes Bild leicht gedreht,
+  verschoben, größer/kleiner und mit Rauschen – so wird sie robust.
+
+### 🖌️ Gegenprobe: Die KI malt selbst
+
+Nach dem Training gibt es die Gegenprobe **„Ich male selbst!"**. Die KI startet
+beim Durchschnitt deiner Zeichnungen und schiebt das Bild Schritt für Schritt in
+die Richtung, die sie für „sicher" hält. So entsteht ein Bild, das sie selbst
+wieder erkennt. Danach zeigt sie, wie sicher sie sich dabei ist.
+
+Das ist ein ehrlicher, lehrreicher Blick in die KI: Sie kann nur malen, was sie
+aus deinen Beispielen kennt. Zeigst du ihr nichts, malt sie nichts Sinnvolles.
+
+### 🎨 Besser zeichnen
+
+- **Glatte Striche**, damit runde Formen rund aussehen.
+- **Radierer, Zurück und Leinwand leeren** – mit Zurück für den letzten Strich.
+- **Live-Vorschau:** Ein kleines Fenster zeigt, *was die KI wirklich sieht* –
+  ein grobes Raster von 16×16 Punkten, ohne Farben. Das erklärt, warum
+  deutliche, große Zeichnungen am besten funktionieren.
+- **Tipps** direkt unter der Leinwand, passend zur gemessenen Rechenleistung.
+
+### 🔓 Keine Beschränkungen
+
+Es gibt keine Obergrenzen mehr: beliebig viele Kategorien, beliebig viele
+Beispiele, beliebig viele KIs und beliebig viele Wiederholungen.
+
 ## Gratis veröffentlichen (GitHub Pages)
 
 Damit Freunde und Familie die Werkstatt im Browser öffnen können:
@@ -103,7 +152,8 @@ Es ist kein Server und kein Bauen nötig – die Seite ist reines HTML/CSS/JS.
 
 | Datei | Aufgabe |
 |---|---|
-| `js/nn.js` | Die neuronale Netz-Engine: Dense-Layer, ReLU/Tanh/Softmax, Kreuz-Entropie und MSE, **Adam-Optimizer**, Mini-Batches, Speichern/Laden |
+| `js/nn.js` | Die neuronale Netz-Engine: Dense-Layer, ReLU/Tanh/Softmax, Kreuz-Entropie und MSE, **Adam-Optimizer**, Mini-Batches, Speichern/Laden, Trefferquote, Gradienten der Eingabe (für das Selbst-Malen) |
+| `js/perf.js` | Kurzer Rechenleistungs-Test und daraus abgeleitete, **unverbindliche** Empfehlungen |
 | `js/ui.js` | Oberflächen-Werkzeuge: Konfetti, Lernkurven, Wahrscheinlichkeits-Balken, Speicher, Export |
 | `js/text-ai.js` | Wörter-Modul (N-Gramm-Features über Hashing) |
 | `js/image-ai.js` | Bild-Modul (16×16-Raster, Zentrierung, Augmentation) |
@@ -133,8 +183,8 @@ window.Storage.isCloudEnabled()    // ist ein Repository verbunden?
 ## Tests
 
 ```bash
-node tests/nn-test.js       # 14 Tests: die Engine (XOR, Regression, Speichern)
-node tests/browser-test.js  # 50 Tests: die ganze Seite im echten Browser
+node tests/nn-test.js       # 20 Tests: die Engine (XOR, Regression, Gradient, Selbst-Malen)
+node tests/browser-test.js  # 75 Tests: die ganze Seite im echten Browser
 ```
 
 Der Browser-Test braucht `playwright-core` und Chromium:

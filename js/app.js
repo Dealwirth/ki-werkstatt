@@ -23,6 +23,8 @@
     { id: "image_twenty", emoji: "🖼️", name: "Kunst-Sammler", desc: "20 Zeichnungen beigebracht" },
     { id: "image_low_loss", emoji: "👁️", name: "Bild-Erkenner", desc: "Bild-KI sicher trainiert" },
     { id: "image_self_test", emoji: "🔬", name: "Bild-Forscher", desc: "Bild-KI Selbst-Test bestanden" },
+    { id: "image_generate", emoji: "🖌️", name: "Bilder-Maler", desc: "Die KI hat selbst ein Bild gemalt" },
+    { id: "perf_measured", emoji: "⚡", name: "Blitz-Messer", desc: "Rechenleistung gemessen" },
     { id: "number_ten", emoji: "🔢", name: "Zahlen-Freund", desc: "10 Zahlen-Paare gezeigt" },
     { id: "number_low_loss", emoji: "📐", name: "Regel-Knacker", desc: "Geheime Regel gefunden" },
     { id: "saved", emoji: "💾", name: "Sicherer Hafen", desc: "Eine KI als Datei gespeichert" },
@@ -376,6 +378,7 @@
 
     // Oeffentliche Schnittstelle fuer neugierige Kinder (und fuer Tests)
     window.NN = NN;
+    window.Perf = typeof Perf !== "undefined" ? Perf : null;
     window.KI = {
       text: textAI,
       image: imageAI,

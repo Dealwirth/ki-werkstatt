@@ -138,7 +138,7 @@
             <h3>1️⃣ Schubladen bauen</h3>
             <p class="muted">Gib jeder Schublade einen Namen, z. B. „Obst" oder „Tiere".</p>
             <div class="row">
-              <input type="text" id="text-category-input" placeholder="Name der Schublade…" maxlength="20" />
+              <input type="text" id="text-category-input" placeholder="Name der Schublade…" />
               <button class="btn btn-primary" id="text-add-category">Hinzufügen</button>
             </div>
             <div class="chip-list" id="text-categories"></div>
@@ -148,7 +148,7 @@
             <h3>2️⃣ Beispiele zeigen</h3>
             <p class="muted">Schreibe ein Wort und wähle, in welche Schublade es gehört.</p>
             <div class="row">
-              <input type="text" id="text-word-input" placeholder="z. B. Apfel" maxlength="30" />
+              <input type="text" id="text-word-input" placeholder="z. B. Apfel" />
               <select id="text-word-category"></select>
               <button class="btn btn-primary" id="text-add-example">Beibringen</button>
             </div>
@@ -173,7 +173,7 @@
               <button class="btn btn-learn" id="text-train">🧠 Lernen lassen</button>
               <label class="mini-field">
                 Runden
-                <input type="number" id="text-epochs" value="300" min="10" max="5000" step="10" />
+                <input type="number" id="text-epochs" value="300" min="1" step="10" />
               </label>
             </div>
             <div class="progress"><div class="progress-fill" id="text-progress"></div></div>
@@ -188,7 +188,7 @@
             <h3>🔍 Die KI testen</h3>
             <p class="muted">Gib ein <em>neues</em> Wort ein, das sie noch nicht kennt.</p>
             <div class="row">
-              <input type="text" id="text-test-input" placeholder="Neues Wort…" maxlength="30" />
+              <input type="text" id="text-test-input" placeholder="Neues Wort…" />
               <button class="btn btn-primary" id="text-test-btn">Fragen</button>
             </div>
             <div class="answer-box" id="text-answer">
@@ -242,9 +242,9 @@
         <div class="column">
           <div class="card">
             <h3>1️⃣ Was kann die KI lernen?</h3>
-            <p class="muted">Lege bis zu 4 Sachen fest, die du zeichnen willst.</p>
+            <p class="muted">Lege fest, was die KI lernen soll – so viele Sachen, wie du magst.</p>
             <div class="row">
-              <input type="text" id="image-category-input" placeholder="z. B. Katze" maxlength="20" />
+              <input type="text" id="image-category-input" placeholder="z. B. Katze" />
               <button class="btn btn-primary" id="image-add-category">Hinzufügen</button>
             </div>
             <div class="chip-list" id="image-categories"></div>
@@ -253,23 +253,42 @@
           <div class="card">
             <h3>2️⃣ Zeichnen &amp; beibringen</h3>
             <div class="draw-wrap">
-              <canvas id="draw-canvas" width="280" height="280"></canvas>
+              <div class="canvas-stack">
+                <canvas id="draw-canvas" width="280" height="280"></canvas>
+                <div class="live-preview">
+                  <span class="live-label">So sieht mich die KI:</span>
+                  <canvas id="draw-preview" width="64" height="64"></canvas>
+                </div>
+              </div>
               <div class="draw-side">
                 <p class="muted">Male mit der Maus oder dem Finger:</p>
                 <select id="draw-category"></select>
+                <div class="tool-row">
+                  <button class="tool active" id="draw-pen" title="Mit Stift malen">✏️ Stift</button>
+                  <button class="tool" id="draw-eraser" title="Radieren">🩹 Radierer</button>
+                  <button class="tool" id="draw-undo" title="Letzten Strich zurück">↩️ Zurück</button>
+                </div>
                 <button class="btn btn-primary btn-block" id="draw-save">➕ Als Beispiel merken</button>
                 <button class="btn btn-ghost btn-block" id="draw-clear">🧽 Leinwand leeren</button>
                 <label class="mini-field">
                   Stiftdicke
-                  <input type="range" id="draw-size" min="8" max="40" value="22" />
+                  <input type="range" id="draw-size" min="2" max="60" value="22" />
                 </label>
               </div>
             </div>
-            <p class="mini-hint">
-              Für gute Ergebnisse: <strong>mindestens 10 Zeichnungen pro Sache</strong>,
-              und male jedes Mal ein bisschen anders.
-            </p>
+            <div class="tips" id="image-tips"></div>
             <div class="thumb-grid" id="image-thumbs"></div>
+            <div class="consequence" id="image-consequence"></div>
+          </div>
+
+          <div class="card">
+            <h3>⚡ Wie schnell ist dein Gerät?</h3>
+            <p class="muted">
+              Ein kurzer Test zeigt, wie flott hier trainiert wird – und wie viele
+              Beispiele sinnvoll sind. <strong>Nichts davon ist Pflicht.</strong>
+            </p>
+            <button class="btn btn-ghost btn-block" id="perf-run">⚡ Rechenleistung testen</button>
+            <div class="perf-box" id="perf-result"><p class="muted">Noch nicht gemessen.</p></div>
           </div>
 
           <div class="card">
@@ -278,7 +297,7 @@
               <button class="btn btn-learn" id="image-train">🧠 Lernen lassen</button>
               <label class="mini-field">
                 Runden
-                <input type="number" id="image-epochs" value="120" min="10" max="3000" step="10" />
+                <input type="number" id="image-epochs" value="120" min="1" step="10" />
               </label>
             </div>
             <div class="progress"><div class="progress-fill" id="image-progress"></div></div>
@@ -296,7 +315,7 @@
               <button class="btn btn-ghost btn-block" id="test-clear">🧽 Leeren</button>
               <label class="mini-field">
                 Stiftdicke
-                <input type="range" id="test-size" min="8" max="40" value="22" />
+                <input type="range" id="test-size" min="2" max="60" value="22" />
               </label>
             </div>
             <div class="answer-box" id="image-answer">
@@ -312,6 +331,21 @@
               <div class="stat"><span id="image-stat-acc">–</span><small>Trefferquote</small></div>
             </div>
             <button class="btn btn-ghost btn-block" id="image-self-test">Selbst-Test machen</button>
+
+            <hr class="sep" />
+            <h4>🎨 Gegenprobe: Ich male selbst!</h4>
+            <p class="muted">
+              Statt zu raten, zeichne <em>ich</em> jetzt mal. Wähle eine Sache –
+              und schau, was ich mir darunter vorstelle.
+            </p>
+            <div class="row">
+              <select id="gen-category"></select>
+              <button class="btn btn-primary" id="gen-run">Malen!</button>
+            </div>
+            <canvas id="gen-canvas" width="180" height="180"></canvas>
+            <p class="mini-hint" id="gen-status">
+              Erst lernen lassen – dann male ich.
+            </p>
             <button class="btn btn-ghost btn-block" id="image-save">💾 KI speichern</button>
             <button class="btn btn-ghost btn-block" id="image-load">📂 KI laden</button>
             <input type="file" id="image-load-file" accept="application/json" hidden />
@@ -370,7 +404,7 @@
               <button class="btn btn-learn" id="number-train">🧠 Lernen lassen</button>
               <label class="mini-field">
                 Runden
-                <input type="number" id="number-epochs" value="800" min="10" max="10000" step="10" />
+                <input type="number" id="number-epochs" value="800" min="1" step="10" />
               </label>
             </div>
             <div class="progress"><div class="progress-fill" id="number-progress"></div></div>
@@ -458,7 +492,26 @@
           </p>
         </article>
         <article class="card">
-          <h3>5. Warum die KI Fehler macht</h3>
+          <h3>5. Die KI kann auch malen!</h3>
+          <p>
+            Nach dem Training kannst du die KI bitten, selbst ein Bild zu malen
+            („Gegenprobe"). Sie startet beim <strong>Durchschnitt deiner
+            Zeichnungen</strong> und verändert das Bild Schritt für Schritt so
+            lange, bis sie es selbst sicher erkennt. Sie kann nur malen, was sie
+            aus deinen Beispielen kennt – das ist der ehrliche Teil daran.
+          </p>
+        </article>
+        <article class="card">
+          <h3>6. Wie schnell ist dein Gerät?</h3>
+          <p>
+            Mit dem Knopf „Rechenleistung testen" misst die Seite, wie viele
+            Trainingsrunden pro Sekunde möglich sind. Daraus gibt sie dir
+            <strong>Empfehlungen</strong> – aber nichts davon ist Pflicht. Du
+            entscheidest immer selbst, wie viele Beispiele und Runden du nutzt.
+          </p>
+        </article>
+        <article class="card">
+          <h3>7. Warum die KI Fehler macht</h3>
           <ul class="tick-list">
             <li><strong>Zu wenige Beispiele:</strong> Sie hat noch kein Muster gesehen.</li>
             <li><strong>Einseitige Beispiele:</strong> Nur Äpfel gezeigt → sie hält alles für Obst.</li>
@@ -552,6 +605,7 @@ console.log(window.KI.text.predict("Apfel"));</code></pre>
 
   <!-- ====================== SKRIPTE ====================== -->
   <script src="js/nn.js"></script>
+  <script src="js/perf.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/projects.js"></script>

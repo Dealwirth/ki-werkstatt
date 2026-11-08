@@ -47,8 +47,12 @@ const URL = process.env.TEST_URL || "http://localhost:12000/index.html";
   check("window.KI vorhanden", await page.evaluate(() => !!window.KI));
   check("NN-Engine geladen", await page.evaluate(() => !!window.NN && !!window.NN.NeuralNet));
   check("5 Tabs vorhanden", (await page.locator(".tab").count()) === 5);
-  check("13 Abzeichen angezeigt", (await page.locator(".badge").count()) === 13);
+  check("15 Abzeichen angezeigt", (await page.locator(".badge").count()) === 15);
   check("4 Muster-Knöpfe vorhanden", (await page.locator("[data-preset]").count()) === 4);
+  check("Perf-Modul geladen", await page.evaluate(() => !!window.Perf && typeof window.Perf.run === "function"));
+  check("Engine hat evaluate()", await page.evaluate(() => typeof window.NN.NeuralNet.prototype.evaluate === "function"));
+  check("Engine hat inputGradient()", await page.evaluate(() => typeof window.NN.NeuralNet.prototype.inputGradient === "function"));
+  check("Engine hat generateFor()", await page.evaluate(() => typeof window.NN.NeuralNet.prototype.generateFor === "function"));
 
   console.log("\n[2] Navigation");
   await page.click('.tab[data-tab="text"]');
@@ -80,6 +84,7 @@ const URL = process.env.TEST_URL || "http://localhost:12000/index.html";
   );
   const textStatus = await page.textContent("#text-status");
   check("Training abgeschlossen", textStatus.includes("Fertig"), textStatus);
+  check("Wörter-Training nennt Trefferquote", /Treffer/.test(textStatus), textStatus.slice(0, 90));
 
   const pred = async (word) => {
     await page.fill("#text-test-input", word);
@@ -254,6 +259,145 @@ const URL = process.env.TEST_URL || "http://localhost:12000/index.html";
   await drawOn("#test-canvas", "line", 76);
   const lineAns = await readPrediction("neuer Strich");
   check("neuer Strich wird als Strich erkannt", lineAns.includes("Strich"), lineAns);
+
+  // ---------------------------------------------------------------------------
+  console.log("\n[5b] Zeichenwerkzeuge, Tipps und Rechenleistung");
+  check("Live-Vorschau vorhanden", (await page.locator("#draw-preview").count()) === 1);
+  check("Drei Zeichenwerkzeuge", (await page.locator(".tool-row .tool").count()) === 3);
+  check("Tipps werden angezeigt", (await page.locator("#image-tips .tip").count()) >= 3);
+
+  // Stift/Radierer umschalten
+  await page.click("#draw-eraser");
+  await page.waitForTimeout(100);
+  check("Radierer ist aktiv", await page.evaluate(() =>
+    document.getElementById("draw-eraser").classList.contains("active")));
+  await page.click("#draw-pen");
+  await page.waitForTimeout(100);
+  check("Stift ist wieder aktiv", await page.evaluate(() =>
+    document.getElementById("draw-pen").classList.contains("active")));
+
+  // Live-Vorschau: nach dem Zeichnen muss sie Inhalt zeigen
+  await drawOn("#draw-canvas", "circle", 70);
+  await page.waitForTimeout(300);
+  const previewInk = await page.evaluate(() => {
+    const c = document.getElementById("draw-preview");
+    const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+    let n = 0;
+    for (let i = 3; i < d.length; i += 4) if (d[i] > 10) n++;
+    return n;
+  });
+  check("Live-Vorschau zeigt die Zeichnung", previewInk > 0, "Pixel: " + previewInk);
+
+  // Zuruecknehmen
+  const beforeUndo = await inkOn("#draw-canvas");
+  await page.click("#draw-undo");
+  await page.waitForTimeout(300);
+  const afterUndo = await inkOn("#draw-canvas");
+  check("Zurücknehmen verändert die Leinwand", afterUndo !== beforeUndo,
+    `${beforeUndo} -> ${afterUndo}`);
+  await page.click("#draw-clear");
+  await page.waitForTimeout(150);
+
+  // Rechenleistung testen (Pflicht-Knopf ist da, Empfehlung erscheint)
+  await page.click("#perf-run");
+  await page.waitForFunction(
+    () => /Trainingsrunden pro Sekunde/.test(document.getElementById("perf-result").textContent),
+    { timeout: 20000 }
+  );
+  const perfText = await page.textContent("#perf-result");
+  check("Rechenleistung gemessen", /\d+\s*Trainingsrunden pro Sekunde/.test(perfText));
+  check("Empfehlungen werden angezeigt", (await page.locator("#perf-result .perf-tips li").count()) >= 3);
+  check("Empfehlung ist überspringbar (kein Zwang)", await page.evaluate(() =>
+    !document.getElementById("perf-run").disabled));
+
+  // ---------------------------------------------------------------------------
+  console.log("\n[5c] Gegenprobe: Die KI malt selbst");
+  check("Malen-Bereich vorhanden", (await page.locator("#gen-canvas").count()) === 1);
+  await page.selectOption("#gen-category", "0");
+  await page.click("#gen-run");
+  await page.waitForFunction(
+    () => /Vorstellung/.test(document.getElementById("gen-status").textContent),
+    { timeout: 25000 }
+  );
+  const genText = await page.textContent("#gen-status");
+  console.log("    " + genText.replace(/\s+/g, " ").trim().slice(0, 120));
+  check("KI hat ein Bild gemalt", /Vorstellung von/.test(genText));
+  const genInk = await page.evaluate(() => {
+    const c = document.getElementById("gen-canvas");
+    const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+    let dark = 0;
+    for (let i = 0; i < d.length; i += 4) if (d[i] < 200) dark++;
+    return dark;
+  });
+  check("Gemaltes Bild hat sichtbare Form", genInk > 200, "dunkle Pixel: " + genInk);
+
+  // Gegenprobe: Das gemalte Bild wird auch erkannt (Erwartung == gewaehlte Sache)
+  const genCheck = await page.evaluate(() => {
+    const I = window.KI.image;
+    const c = document.getElementById("gen-canvas");
+    // Aus dem gemalten Canvas einen Vektor machen und vorhersagen
+    const vec = I.canvasToVector(c);
+    const r = I.predict(vec);
+    return r ? { best: r.best.label, conf: r.best.value } : null;
+  });
+  check("Gegenprobe: gemaltes Bild wird richtig erkannt",
+    genCheck && genCheck.best === "Kreis",
+    genCheck ? `${genCheck.best} (${Math.round(genCheck.conf * 100)}%)` : "keine Vorhersage");
+
+  // Folgen-Anzeige: nach dem Training mit genug Beispielen -> gute Meldung
+  const consText = await page.textContent("#image-consequence");
+  check("Folgen werden angezeigt", consText.trim().length > 0, consText.slice(0, 60));
+
+  // ---------------------------------------------------------------------------
+  console.log("\n[5d] Keine Beschränkungen mehr");
+  // Viele Kategorien anlegen (frueher bei 4 gesperrt)
+  for (const name of ["Dreieck", "Welle", "Punkt", "Kreuz", "Herz"]) {
+    await page.fill("#image-category-input", name);
+    await page.click("#image-add-category");
+    await page.waitForTimeout(60);
+  }
+  const catCount = await page.locator("#image-categories .chip").count();
+  check("Mehr als 4 Bild-Kategorien möglich", catCount === 7, "gezählt: " + catCount);
+
+  // Viele Schubladen bei den Woertern (frueher bei 8 gesperrt).
+  // Wichtig: Das machen wir in einer FRISCHEN Woerter-KI, damit die
+  // trainierte KI aus Abschnitt [3] unberuehrt bleibt.
+  await page.click('.tab[data-tab="text"]');
+  await page.waitForTimeout(150);
+  const trainedTextId = await page.evaluate(() => window.KI.text.projects.activeId());
+  await page.evaluate(() => window.KI.text.projects.create("Viele-Schubladen-KI"));
+  await page.waitForTimeout(300);
+  for (let i = 1; i <= 9; i++) {
+    await page.fill("#text-category-input", "Schublade" + i);
+    await page.click("#text-add-category");
+    await page.waitForTimeout(40);
+  }
+  const textCats = await page.locator("#text-categories .chip").count();
+  check("Mehr als 8 Wort-Schubladen möglich", textCats >= 9, "gezählt: " + textCats);
+  // Zurueck zur trainierten Woerter-KI
+  await page.evaluate((id) => window.KI.text.projects.switchTo(id), trainedTextId);
+  await page.waitForTimeout(300);
+  const backTextCats = await page.locator("#text-categories .chip").count();
+  check("Zurück zur trainierten Wörter-KI", backTextCats === 2, "Schubladen: " + backTextCats);
+
+  // Viele KIs anlegen (frueher bei 12 gesperrt)
+  await page.click('.tab[data-tab="image"]');
+  await page.waitForTimeout(150);
+  const trainedId = await page.evaluate(() => window.KI.image.projects.activeId());
+  for (let i = 0; i < 13; i++) {
+    page.once("dialog", (d) => d.accept("Extra-KI " + i));
+    await page.click("#image-projects .btn-primary");
+    await page.waitForTimeout(120);
+  }
+  const projCount = await page.locator("#image-projects .project-chip").count();
+  check("Mehr als 12 KIs möglich", projCount > 12, "gezählt: " + projCount);
+
+  // Zurueck auf die trainierte KI wechseln, damit spaetere Tests weiterlaufen
+  await page.evaluate((id) => window.KI.image.projects.switchTo(id), trainedId);
+  await page.waitForTimeout(400);
+  const backEx = await page.evaluate(() => window.KI.image.state.examples.length);
+  check("Zurück zur trainierten KI", backEx > 0, "Beispiele: " + backEx);
+
 
   // ---------------------------------------------------------------------------
   console.log("\n[6] Speichern (JSON-Export)");

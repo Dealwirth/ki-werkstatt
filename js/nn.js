@@ -363,6 +363,102 @@ const NN = (() => {
       return Array.from(this.forward(input));
     }
 
+    /**
+     * Wie viele der uebergebenen Beispiele werden richtig erkannt?
+     * @param {Array<{input:number[]|Float64Array, target:number[]}>} dataset
+     * @returns {number} Trefferquote 0..1
+     */
+    evaluate(dataset) {
+      if (!dataset.length) return 0;
+      let correct = 0;
+      for (const sample of dataset) {
+        const out = this.forward(sample.input);
+        let bestOut = 0;
+        for (let i = 1; i < out.length; i++) if (out[i] > out[bestOut]) bestOut = i;
+        let bestTarget = 0;
+        for (let i = 1; i < sample.target.length; i++) {
+          if (sample.target[i] > sample.target[bestTarget]) bestTarget = i;
+        }
+        if (bestOut === bestTarget) correct++;
+      }
+      return correct / dataset.length;
+    }
+
+    /**
+     * Gradient der Ausgabe nach der EINGABE. Damit koennen wir ausrechnen,
+     * welche Pixel man veraendern muesste, um eine bestimmte Antwort zu
+     * bekommen - genau das nutzen wir fuer "die KI malt selbst ein Bild".
+     * @param {number[]|Float64Array} input
+     * @param {number} targetIndex  gewuenschte Klasse
+     * @returns {Float64Array} gleiche Laenge wie input
+     */
+    inputGradient(input, targetIndex) {
+      const L = this.layers.length;
+      this.forward(input);
+
+      // Startfehler: wie weit sind wir vom Ziel entfernt?
+      const out = this.lastActivations[L];
+      let delta = new Float64Array(out.length);
+      for (let i = 0; i < out.length; i++) {
+        delta[i] = out[i] - (i === targetIndex ? 1 : 0);
+      }
+
+      // Rueckwaerts bis zur Eingabeschicht. Wichtig: auch die letzte
+      // Schicht (die Eingabe selbst) mitrechnen, sonst ist der Gradient
+      // zu kurz.
+      for (let li = L - 1; li >= 0; li--) {
+        const layer = this.layers[li];
+        const newDelta = new Float64Array(layer.inSize);
+        const prevPre =
+          li > 0 ? this.layers[li - 1].lastPreActivation : null;
+        const prevAct = li > 0 ? this.spec[li].act : null;
+        for (let i = 0; i < layer.inSize; i++) {
+          let sum = 0;
+          for (let o = 0; o < layer.outSize; o++) {
+            sum += layer.weights[o][i] * delta[o];
+          }
+          // Die Eingabeschicht hat keine Aktivierungsfunktion - dort bleibt
+          // die Summe stehen.
+          newDelta[i] = li > 0 ? sum * ACTIVATIONS[prevAct].backward(prevPre[i]) : sum;
+        }
+        delta = newDelta;
+      }
+      return delta;
+    }
+
+    /**
+     * Erzeugt eine Eingabe, die das Netz moeglichst sicher als "targetIndex"
+     * erkennt - die KI "malt" also selbst. Wir starten bei einem Bild (oder
+     * bei Rauschen) und schieben es Schritt fuer Schritt in die gewuenschte
+     * Richtung (Gradientenaufstieg).
+     * @param {number} targetIndex
+     * @param {object} opts {start, steps, lr}
+     * @returns {Float64Array}
+     */
+    generateFor(targetIndex, opts = {}) {
+      const steps = opts.steps ?? 60;
+      const lr = opts.lr ?? 0.6;
+      const size = this.inputSize;
+
+      const img = new Float64Array(size);
+      if (opts.start) {
+        for (let i = 0; i < size; i++) img[i] = opts.start[i] || 0;
+      } else {
+        // Ein weicher Startpunkt: alles ein wenig "grau".
+        for (let i = 0; i < size; i++) img[i] = 0.3 + Math.random() * 0.1;
+      }
+
+      for (let s = 0; s < steps; s++) {
+        const grad = this.inputGradient(img, targetIndex);
+        for (let i = 0; i < size; i++) {
+          // Schritt in Richtung "sicherer fuer das Ziel"
+          let v = img[i] - lr * grad[i];
+          img[i] = v < 0 ? 0 : v > 1 ? 1 : v;
+        }
+      }
+      return img;
+    }
+
     /** Alle Gewichte lesbar machen (zum Anschauen in der Konsole). */
     toJSON() {
       return {

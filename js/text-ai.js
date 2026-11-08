@@ -207,10 +207,6 @@ const createTextAI = () => {
       UI.toast("Bitte gib einen Namen ein.", "warn");
       return;
     }
-    if (state.categories.length >= 8) {
-      UI.toast("Mehr als 8 Schubladen werden zu verwirrend.", "warn");
-      return;
-    }
     if (state.categories.some((c) => c.name.toLowerCase() === trimmed.toLowerCase())) {
       UI.toast("Diese Schublade gibt es schon.", "warn");
       return;
@@ -357,12 +353,26 @@ const createTextAI = () => {
     state.busy = true;
     el.trainBtn.disabled = true;
     const data = datasetFrom(state.examples);
-    const lr = 0.01;
     const batchSize = Math.min(8, data.length);
+    const nClasses = Math.max(state.categories.length, 2);
 
     let lastLoss = 0;
+    let bestLoss = Infinity;
+    let stale = 0;
+    let rounds = 0;
     for (let i = 0; i < epochs; i++) {
+      // Grosse Schritte am Anfang, feinere spaeter -> schnell und genau.
+      const lr = 0.02 * (1 - 0.5 * (i / epochs));
       lastLoss = state.net.trainEpoch(data, { lr, batchSize });
+      rounds = i + 1;
+
+      if (lastLoss < bestLoss - 1e-4) {
+        bestLoss = lastLoss;
+        stale = 0;
+      } else {
+        stale++;
+      }
+
       if (i % 5 === 0 || i === epochs - 1) {
         el.progress.style.width = (((i + 1) / epochs) * 100).toFixed(1) + "%";
         setStatus(`Runde ${i + 1}/${epochs} – Fehler: ${lastLoss.toFixed(3)}`);
@@ -370,13 +380,23 @@ const createTextAI = () => {
         if (onProgress) onProgress(i + 1, epochs);
         await UI.sleep(0);
       }
+      if (stale > 120 && i > 60) break;
     }
 
     el.progress.style.width = "100%";
     state.trained = true;
     state.busy = false;
     el.trainBtn.disabled = false;
-    setStatus(`Fertig! Fehler am Ende: ${lastLoss.toFixed(3)} (kleiner = besser).`);
+
+    const own = state.examples.map((ex) => ({
+      input: wordToVector(ex.word),
+      target: NN.oneHot(ex.catIndex, nClasses),
+    }));
+    state.lastAccuracy = state.net.evaluate(own);
+    setStatus(
+      `Fertig nach ${rounds} Runden! Fehler: ${lastLoss.toFixed(3)} · ` +
+      `Treffer auf deinen Wörtern: ${Math.round(state.lastAccuracy * 100)}%`
+    );
     updateStats();
     persist();
 
@@ -694,7 +714,7 @@ const createTextAI = () => {
     });
 
     el.trainBtn.addEventListener("click", () => {
-      const epochs = Math.max(10, Math.min(5000, parseInt(el.epochs.value, 10) || 600));
+      const epochs = Math.max(1, parseInt(el.epochs.value, 10) || 600);
       el.epochs.value = epochs;
       el.progress.style.width = "0%";
       train(epochs);

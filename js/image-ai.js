@@ -29,10 +29,18 @@ const createImageAI = () => {
 
   const GRID = 16;              // 16x16 = 256 Eingabewerte
   const FEATURES = GRID * GRID;
+  // Schoene, gut unterscheidbare Farben. Fuer sehr viele Kategorien
+  // werden darueber hinaus weitere Farben per Regenbogen-Formel erzeugt.
   const COLORS = [
     "#4d96ff", "#6bcb77", "#ff9f45", "#c780fa",
     "#ff6b6b", "#00b8a9", "#f5b700", "#f6a6ff",
+    "#7f5347", "#579bfc", "#fdab3d", "#9d50dd",
   ];
+  function colorAt(i) {
+    if (i < COLORS.length) return COLORS[i];
+    const hue = (i * 137.508) % 360; // Goldener Winkel: nie zwei gleich nebeneinander
+    return `hsl(${hue.toFixed(0)}, 70%, 58%)`;
+  }
 
   const state = {
     categories: [],
@@ -181,12 +189,12 @@ const createImageAI = () => {
     augTargetCtx.setTransform(1, 0, 0, 1, 0, 0);
     augTargetCtx.clearRect(0, 0, GRID, GRID);
     augTargetCtx.translate(GRID / 2, GRID / 2);
-    augTargetCtx.rotate(((random() - 0.5) * 24 * Math.PI) / 180); // ±12 Grad
-    const scale = 0.88 + random() * 0.24;                          // 0.88 .. 1.12
+    augTargetCtx.rotate(((random() - 0.5) * 34 * Math.PI) / 180); // ±17 Grad
+    const scale = 0.84 + random() * 0.32;                          // 0.84 .. 1.16
     augTargetCtx.scale(scale, scale);
     augTargetCtx.translate(
-      -GRID / 2 + (random() - 0.5) * 3,
-      -GRID / 2 + (random() - 0.5) * 3
+      -GRID / 2 + (random() - 0.5) * 4,
+      -GRID / 2 + (random() - 0.5) * 4
     );
     augTargetCtx.drawImage(augSource, 0, 0);
 
@@ -195,8 +203,8 @@ const createImageAI = () => {
     const result = new Float64Array(FEATURES);
     for (let i = 0; i < FEATURES; i++) {
       let v = out[i * 4 + 3] / 255;
-      // Ein bisschen Rauschen, damit die KI robust bleibt
-      v += (random() - 0.5) * 0.06;
+      // Rauschen und leichte Helligkeitsschwankung: so bleibt die KI robust
+      v = v * (0.85 + random() * 0.3) + (random() - 0.5) * 0.08;
       result[i] = v < 0 ? 0 : v > 1 ? 1 : v;
     }
     return result;
@@ -206,12 +214,20 @@ const createImageAI = () => {
   // Netz
   // ---------------------------------------------------------------------------
 
+  /**
+   * Baut das Netz. Die Groesse passt sich an: mehr Klassen und mehr
+   * Beispiele -> mehr Neuronen. So lernt die KI schwere Aufgaben besser,
+   * bleibt aber bei kleinen Aufgaben flott.
+   */
   function buildNet(seed = 42) {
     const outSize = Math.max(state.categories.length, 2);
+    const n = state.examples.length;
+    const hidden1 = Math.min(192, Math.max(64, 32 + outSize * 16 + Math.floor(n / 2)));
+    const hidden2 = Math.min(96, Math.max(24, Math.floor(hidden1 / 2)));
     state.net = new NN.NeuralNet(seed, [
       { size: FEATURES },
-      { size: 64, act: "relu" },
-      { size: 32, act: "relu" },
+      { size: hidden1, act: "relu" },
+      { size: hidden2, act: "relu" },
       { size: outSize, act: "softmax" },
     ]);
     state.trained = false;
@@ -223,7 +239,7 @@ const createImageAI = () => {
   // ---------------------------------------------------------------------------
 
   function colorFor(i) {
-    return COLORS[i % COLORS.length];
+    return colorAt(i);
   }
 
   function renderCategories() {
@@ -247,6 +263,7 @@ const createImageAI = () => {
     el.drawCategory.innerHTML = options || '<option value="">– keine –</option>';
     el.drawCategory.disabled = state.categories.length === 0;
     el.drawSave.disabled = state.categories.length === 0;
+    renderGenCategories();
   }
 
   function renderThumbs() {
@@ -291,6 +308,7 @@ const createImageAI = () => {
           state.examples.splice(idx, 1);
           state.trained = false;
           renderThumbs();
+          renderConsequence();
           updateStats();
           refreshGlobal();
           persist();
@@ -332,10 +350,6 @@ const createImageAI = () => {
       UI.toast("Bitte gib einen Namen ein.", "warn");
       return;
     }
-    if (state.categories.length >= 4) {
-      UI.toast("Bleib bei höchstens 4 Sachen – sonst wird's zu schwer.", "warn");
-      return;
-    }
     if (state.categories.some((c) => c.name.toLowerCase() === trimmed.toLowerCase())) {
       UI.toast("Das gibt es schon.", "warn");
       return;
@@ -356,6 +370,7 @@ const createImageAI = () => {
     buildNet();
     renderCategories();
     renderThumbs();
+    renderConsequence();
     updateStats();
     drawChart();
     persist();
@@ -375,10 +390,13 @@ const createImageAI = () => {
     state.examples.push({ label, data: vec });
     state.trained = false;
     renderThumbs();
+    renderConsequence();
     updateStats();
     refreshGlobal();
     persist();
+    pushUndo("draw", el.drawCanvas);
     clearCanvas(el.drawCanvas);
+    updatePreview();
 
     const count = state.examples.length;
     if (count === 20) window.KI?.unlockBadge("image_twenty");
@@ -404,18 +422,35 @@ const createImageAI = () => {
     state.busy = true;
     el.trainBtn.disabled = true;
     const random = NN.makeRandom(2024);
+    const nClasses = Math.max(state.categories.length, 2);
 
     let lastLoss = 0;
+    let bestLoss = Infinity;
+    let stale = 0;
+    let rounds = 0;
     for (let i = 0; i < epochs; i++) {
       // Bei jeder Runde jedes Bild neu verwackeln -> unendlich viele Varianten
       const data = state.examples.map((ex) => ({
         input: augment(ex.data, random),
-        target: NN.oneHot(ex.label, Math.max(state.categories.length, 2)),
+        target: NN.oneHot(ex.label, nClasses),
       }));
+      // Am Anfang groessere Schritte, spaeter feinere: so geht es schnell
+      // voran und wird trotzdem genau.
+      const lr = 0.03 * (1 - 0.6 * (i / epochs));
       lastLoss = state.net.trainEpoch(data, {
-        lr: 0.02,
+        lr,
         batchSize: Math.min(8, data.length),
       });
+      rounds = i + 1;
+
+      // Fruehstopp: Wenn sich der Fehler lange nicht mehr verbessert,
+      // hoeren wir auf. Das spart Zeit, ohne schlechter zu werden.
+      if (lastLoss < bestLoss - 1e-4) {
+        bestLoss = lastLoss;
+        stale = 0;
+      } else {
+        stale++;
+      }
 
       if (i % 3 === 0 || i === epochs - 1) {
         el.progress.style.width = (((i + 1) / epochs) * 100).toFixed(1) + "%";
@@ -424,17 +459,30 @@ const createImageAI = () => {
         if (onProgress) onProgress(i + 1, epochs);
         await UI.sleep(0);
       }
+      if (stale > 60 && i > 40) break;
     }
 
     el.progress.style.width = "100%";
     state.trained = true;
     state.busy = false;
     el.trainBtn.disabled = false;
-    setStatus(`Fertig! Fehler am Ende: ${lastLoss.toFixed(3)}.`);
+
+    // Trefferquote auf den eigenen Bildern bestimmen
+    const own = state.examples.map((ex) => ({
+      input: ex.data,
+      target: NN.oneHot(ex.label, nClasses),
+    }));
+    state.lastAccuracy = state.net.evaluate(own);
+
+    setStatus(
+      `Fertig nach ${rounds} Runden! Fehler: ${lastLoss.toFixed(3)} · ` +
+      `Treffer auf deinen Bildern: ${Math.round(state.lastAccuracy * 100)}%`
+    );
     updateStats();
+    renderConsequence();
     persist();
 
-    if (lastLoss < 0.15) {
+    if (lastLoss < 0.15 || state.lastAccuracy >= 0.95) {
       window.KI?.unlockBadge("image_low_loss");
       UI.confetti(70);
       UI.toast("Jetzt erkenne ich deine Zeichnungen! 🎉", "success");
@@ -443,6 +491,195 @@ const createImageAI = () => {
     }
     return true;
   }
+
+  // ---------------------------------------------------------------------------
+  // Tipps und Folgen
+  // ---------------------------------------------------------------------------
+
+  function renderTips() {
+    if (!el.tips) return;
+    const rec = (Perf.last() && Perf.last().recommended) || { imagePerClass: 10 };
+    const per = rec.imagePerClass;
+    el.tips.innerHTML = `
+      <div class="tip"><span class="tip-ico">💡</span><div>
+        <strong>Zeichne gross und deutlich.</strong> Die KI sieht nur ein
+        grobes Raster von 16×16 Punkten – kleine Schraffuren erkennt sie nicht.
+      </div></div>
+      <div class="tip"><span class="tip-ico">💡</span><div>
+        <strong>Male jedes Bild anders</strong> (etwas grösser, schief, weiter
+        links). Genau dadurch wird die KI sicher.
+      </div></div>
+      <div class="tip"><span class="tip-ico">💡</span><div>
+        <strong>Etwa ${per}–${per + 4} Bilder pro Sache</strong> sind ein guter
+        Start. Mehr schadet nie – ist aber nicht Pflicht.
+      </div></div>
+      <div class="tip"><span class="tip-ico">💡</span><div>
+        <strong>Sachen müssen sich klar unterscheiden.</strong> „Kreis" und
+        „Punkt" sind für die KI fast dasselbe. Nimm lieber „Kreis" und „Strich".
+      </div></div>
+    `;
+  }
+
+  function renderConsequence() {
+    if (!el.consequence) return;
+    const perClass = {};
+    state.examples.forEach((ex) => {
+      perClass[ex.label] = (perClass[ex.label] || 0) + 1;
+    });
+    const counts = Object.values(perClass);
+    const minPer = counts.length ? Math.min(...counts) : 0;
+    const res = Perf.consequence("image", {
+      classes: state.categories.length,
+      perClass: minPer,
+      total: state.examples.length,
+    });
+    el.consequence.innerHTML = "";
+    if (!res) {
+      el.consequence.style.display = "none";
+      return;
+    }
+    el.consequence.style.display = "block";
+    const box = document.createElement("div");
+    box.className = "consequence-box " + res.level;
+    const icon = res.level === "warn" ? "⚠️" : res.level === "good" ? "✅" : "ℹ️";
+    box.innerHTML = `<span class="tip-ico">${icon}</span><span>${UI.escapeHtml(res.text)}</span>`;
+    el.consequence.appendChild(box);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Gegenprobe: Die KI malt selbst ein Bild
+  // ---------------------------------------------------------------------------
+
+  function renderGenerated(vec) {
+    const canvas = el.genCanvas;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const size = canvas.width;
+    const cell = size / GRID;
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, size, size);
+    for (let gy = 0; gy < GRID; gy++) {
+      for (let gx = 0; gx < GRID; gx++) {
+        const v = Math.max(0, Math.min(1, vec[gy * GRID + gx]));
+        if (v <= 0.02) continue;
+        const g = Math.round(255 - v * 220);
+        ctx.fillStyle = `rgb(${g},${g},${g + 6})`;
+        ctx.fillRect(gx * cell, gy * cell, Math.ceil(cell), Math.ceil(cell));
+      }
+    }
+  }
+
+  async function generateImage() {
+    if (!state.net || !state.trained) {
+      UI.toast("Erst lernen lassen – dann kann ich malen!", "warn");
+      return;
+    }
+    const idx = parseInt(el.genCategory.value, 10);
+    if (isNaN(idx) || !state.categories[idx]) {
+      UI.toast("Wähle eine Sache aus.", "warn");
+      return;
+    }
+    const cat = state.categories[idx];
+    el.genRun.disabled = true;
+    el.genStatus.textContent = `Ich überlege, wie „${cat.name}" aussieht…`;
+
+    const size = FEATURES;
+
+    // Startpunkt: der Durchschnitt aller deiner Bilder dieser Sache.
+    // Das ist eine gute Grundform - die KI kennt sie schon.
+    const start = new Float64Array(size);
+    const mine = state.examples.filter((ex) => ex.label === idx);
+    if (mine.length) {
+      for (const ex of mine) {
+        for (let i = 0; i < size; i++) start[i] += ex.data[i];
+      }
+      for (let i = 0; i < size; i++) start[i] /= mine.length;
+    } else {
+      for (let i = 0; i < size; i++) start[i] = 0.15 + Math.random() * 0.1;
+    }
+    let startInk = 0;
+    for (let i = 0; i < size; i++) startInk += start[i];
+
+    // Jetzt verfeinern: Schritt fuer Schritt in Richtung "sicher" schieben.
+    // Danach die Menge an "Tinte" wieder auf den Ausgangswert bringen - so
+    // bleibt das Bild sauber, statt ganz schwarz zu werden.
+    const img = Float64Array.from(start);
+    const steps = 60;
+    for (let s = 0; s < steps; s++) {
+      const lr = 0.15 * (1 - 0.6 * (s / steps));
+      const grad = state.net.inputGradient(img, idx);
+      for (let i = 0; i < size; i++) {
+        let v = img[i] - lr * grad[i];
+        img[i] = v < 0 ? 0 : v > 1 ? 1 : v;
+      }
+      let ink = 0;
+      for (let i = 0; i < size; i++) ink += img[i];
+      if (startInk > 0 && ink > 0) {
+        const f = startInk / ink;
+        for (let i = 0; i < size; i++) img[i] = Math.min(1, img[i] * f);
+      }
+      if (s % 8 === 0) {
+        renderGenerated(img);
+        await UI.sleep(0);
+      }
+    }
+
+    renderGenerated(img);
+    const probs = state.net.predict(img);
+    const conf = Math.round((probs[idx] || 0) * 100);
+    el.genStatus.innerHTML =
+      `Das ist meine Vorstellung von <strong>„${UI.escapeHtml(cat.name)}"</strong>. ` +
+      `Wenn ich dieses Bild sehe, bin ich mir zu ${conf}% sicher.`;
+    el.genRun.disabled = false;
+    window.KI?.unlockBadge("image_generate");
+    UI.toast("Fertig gemalt! 🎨", "success");
+  }
+
+  function renderGenCategories() {
+    if (!el.genCategory) return;
+    el.genCategory.innerHTML = state.categories
+      .map((c, i) => `<option value="${i}">${UI.escapeHtml(c.name)}</option>`)
+      .join("");
+    el.genCategory.disabled = state.categories.length === 0;
+    if (el.genRun) el.genRun.disabled = state.categories.length === 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rechenleistung
+  // ---------------------------------------------------------------------------
+
+  function renderPerf(report) {
+    if (!el.perfResult) return;
+    if (!report) {
+      const last = Perf.last();
+      if (!last) {
+        el.perfResult.innerHTML = '<p class="muted">Noch nicht gemessen.</p>';
+        return;
+      }
+      report = last;
+    }
+    const tips = report.tips.map((t) => `<li>${UI.escapeHtml(t)}</li>`).join("");
+    el.perfResult.innerHTML = `
+      <p class="perf-title">${report.title}</p>
+      <p class="muted">${UI.escapeHtml(report.summary)}</p>
+      <p class="perf-num">${report.stepsPerSecond} Trainingsrunden pro Sekunde</p>
+      <ul class="perf-tips">${tips}</ul>
+    `;
+  }
+
+  async function runPerf() {
+    el.perfBtn.disabled = true;
+    el.perfResult.innerHTML = '<p class="muted">Ich messe kurz… (das dauert nur einen Moment)</p>';
+    await UI.sleep(30);
+    const report = await Perf.run();
+    el.perfBtn.disabled = false;
+    renderPerf(report);
+    renderTips();
+    window.KI?.unlockBadge("perf_measured");
+    UI.toast(`Gemessen: ${report.stepsPerSecond} Runden/s`, "info");
+  }
+
+
 
   function predict(vec) {
     if (!state.net || !state.trained) return null;
@@ -557,13 +794,77 @@ const createImageAI = () => {
   // Zeichnen auf der Leinwand
   // ---------------------------------------------------------------------------
 
+  // Zustand fuer das Malen
+  let brush = "pen";        // "pen" oder "eraser"
+  const undoStacks = { draw: [], test: [] };
+  const UNDO_MAX = 30;
+
+  function pushUndo(which, canvas) {
+    const stack = undoStacks[which];
+    if (!stack) return;
+    try {
+      stack.push(canvas.toDataURL());
+      if (stack.length > UNDO_MAX) stack.shift();
+    } catch (e) {
+      /* manche Browser verweigern toDataURL - dann eben kein Zurueck */
+    }
+  }
+
+  function undo(which, canvas) {
+    const stack = undoStacks[which];
+    if (!stack || !stack.length) {
+      UI.toast("Es gibt nichts zum Zurücknehmen.", "info");
+      return;
+    }
+    const dataUrl = stack.pop();
+    const img = new Image();
+    img.onload = () => {
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      if (which === "draw") updatePreview();
+    };
+    img.src = dataUrl;
+  }
+
+  /**
+   * Zeichnet einen glatten Strich zwischen zwei Punkten. Mehrere kleine
+   * Teilstuecke sorgen fuer weiche Kurven (statt eckiger Linien).
+   */
+  function strokeSegment(ctx, from, to, size) {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const dist = Math.hypot(dx, dy);
+    const step = Math.max(1, size * 0.25);
+    const n = Math.max(1, Math.ceil(dist / step));
+    for (let i = 1; i <= n; i++) {
+      const t = i / n;
+      const x = from.x + dx * t;
+      const y = from.y + dy * t;
+      const r = size / 2;
+      if (brush === "eraser") {
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(0,0,0,1)";
+        ctx.fill();
+      } else {
+        ctx.globalCompositeOperation = "source-over";
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fillStyle = "#262b3d";
+        ctx.fill();
+      }
+    }
+  }
+
   function setupCanvas(canvas, which) {
     const ctx = canvas.getContext("2d");
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = "#262b3d";
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     const pos = (e) => {
       const rect = canvas.getBoundingClientRect();
@@ -575,32 +876,28 @@ const createImageAI = () => {
 
     const start = (e) => {
       e.preventDefault();
+      pushUndo(which, canvas);
       drawing = true;
       currentTarget = which;
       lastPos = pos(e);
-      // Wichtig: Der Finger "gehoert" jetzt der Leinwand. So bricht der Strich
+      // Der Finger "gehoert" jetzt der Leinwand. So bricht der Strich
       // nicht ab, wenn man beim Malen ueber den Rand hinauskommt.
       try {
         canvas.setPointerCapture(e.pointerId);
       } catch (err) {
         /* aeltere Browser - dann eben ohne */
       }
-      // Ein einzelner Punkt soll auch sichtbar sein
-      ctx.beginPath();
-      ctx.arc(lastPos.x, lastPos.y, ctx.lineWidth / 2, 0, Math.PI * 2);
-      ctx.fillStyle = "#262b3d";
-      ctx.fill();
+      strokeSegment(ctx, lastPos, lastPos, ctx.lineWidth);
+      if (which === "draw") updatePreview();
     };
 
     const move = (e) => {
       if (!drawing || currentTarget !== which) return;
       e.preventDefault();
       const p = pos(e);
-      ctx.beginPath();
-      ctx.moveTo(lastPos.x, lastPos.y);
-      ctx.lineTo(p.x, p.y);
-      ctx.stroke();
+      strokeSegment(ctx, lastPos, p, ctx.lineWidth);
       lastPos = p;
+      if (which === "draw") updatePreview();
     };
 
     const end = (e) => {
@@ -609,6 +906,7 @@ const createImageAI = () => {
       drawing = false;
       currentTarget = null;
       lastPos = null;
+      ctx.globalCompositeOperation = "source-over";
       try {
         canvas.releasePointerCapture(e.pointerId);
       } catch (err) {
@@ -616,6 +914,8 @@ const createImageAI = () => {
       }
       if (which === "test") {
         showPrediction(canvasToVector(canvas));
+      } else {
+        updatePreview();
       }
     };
 
@@ -626,12 +926,40 @@ const createImageAI = () => {
     return ctx;
   }
 
-  function clearCanvas(canvas) {
+  function clearCanvas(canvas, keepUndo) {
     const ctx = canvas.getContext("2d");
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalCompositeOperation = "source-over";
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
+
+  /**
+   * Zeigt klein an, was die KI tatsaechlich "sieht": das 16x16-Raster nach
+   * dem Zentrieren. So verstehen Kinder, dass die KI keine Farben und keine
+   * Feinheiten erkennt - sondern nur ein grobes Raster.
+   */
+  function updatePreview() {
+    if (!el.drawPreview) return;
+    const vec = canvasToVector(el.drawCanvas);
+    const ctx = el.drawPreview.getContext("2d");
+    const img = ctx.createImageData(GRID, GRID);
+    for (let i = 0; i < FEATURES; i++) {
+      const v = Math.max(0, Math.min(1, vec[i])) * 255;
+      img.data[i * 4] = 38;
+      img.data[i * 4 + 1] = 43;
+      img.data[i * 4 + 2] = 61;
+      img.data[i * 4 + 3] = v;
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
+  function setBrush(which) {
+    brush = which;
+    if (el.drawPen) el.drawPen.classList.toggle("active", which === "pen");
+    if (el.drawEraser) el.drawEraser.classList.toggle("active", which === "eraser");
+  }
+
 
   // ---------------------------------------------------------------------------
   // Speichern & Laden
@@ -673,6 +1001,7 @@ const createImageAI = () => {
     }
     renderCategories();
     renderThumbs();
+    renderConsequence();
     updateStats();
     drawChart();
     refreshGlobal();
@@ -801,10 +1130,22 @@ const createImageAI = () => {
       categoryInput: document.getElementById("image-category-input"),
       addCategory: document.getElementById("image-add-category"),
       drawCanvas: document.getElementById("draw-canvas"),
+      drawPreview: document.getElementById("draw-preview"),
       drawCategory: document.getElementById("draw-category"),
       drawSave: document.getElementById("draw-save"),
       drawClear: document.getElementById("draw-clear"),
       drawSize: document.getElementById("draw-size"),
+      drawPen: document.getElementById("draw-pen"),
+      drawEraser: document.getElementById("draw-eraser"),
+      drawUndo: document.getElementById("draw-undo"),
+      tips: document.getElementById("image-tips"),
+      consequence: document.getElementById("image-consequence"),
+      perfBtn: document.getElementById("perf-run"),
+      perfResult: document.getElementById("perf-result"),
+      genCategory: document.getElementById("gen-category"),
+      genCanvas: document.getElementById("gen-canvas"),
+      genRun: document.getElementById("gen-run"),
+      genStatus: document.getElementById("gen-status"),
       thumbs: document.getElementById("image-thumbs"),
       trainBtn: document.getElementById("image-train"),
       epochs: document.getElementById("image-epochs"),
@@ -828,6 +1169,10 @@ const createImageAI = () => {
     restore();
     renderCategories();
     renderThumbs();
+    renderGenCategories();
+    renderTips();
+    renderConsequence();
+    renderPerf();
     updateStats();
     drawChart();
 
@@ -837,6 +1182,7 @@ const createImageAI = () => {
     clearCanvas(el.testCanvas);
     drawCtx.lineWidth = parseInt(el.drawSize.value, 10);
     testCtx.lineWidth = parseInt(el.testSize.value, 10);
+    updatePreview();
 
     el.addCategory.addEventListener("click", () => {
       addCategory(el.categoryInput.value);
@@ -848,12 +1194,22 @@ const createImageAI = () => {
     });
 
     el.drawSave.addEventListener("click", saveDrawing);
-    el.drawClear.addEventListener("click", () => clearCanvas(el.drawCanvas));
+    el.drawClear.addEventListener("click", () => {
+      pushUndo("draw", el.drawCanvas);
+      clearCanvas(el.drawCanvas);
+      updatePreview();
+    });
     el.drawSize.addEventListener("input", () => {
       drawCtx.lineWidth = parseInt(el.drawSize.value, 10);
     });
+    el.drawPen.addEventListener("click", () => setBrush("pen"));
+    el.drawEraser.addEventListener("click", () => setBrush("eraser"));
+    el.drawUndo.addEventListener("click", () => undo("draw", el.drawCanvas));
+    el.perfBtn.addEventListener("click", runPerf);
+    el.genRun.addEventListener("click", generateImage);
 
     el.testClear.addEventListener("click", () => {
+      pushUndo("test", el.testCanvas);
       clearCanvas(el.testCanvas);
       el.answer.className = "answer-box";
       el.answer.innerHTML = '<p class="muted">Zeichne los – ich verrate dir, was ich sehe.</p>';
@@ -864,7 +1220,7 @@ const createImageAI = () => {
     });
 
     el.trainBtn.addEventListener("click", () => {
-      const epochs = Math.max(10, Math.min(3000, parseInt(el.epochs.value, 10) || 120));
+      const epochs = Math.max(1, parseInt(el.epochs.value, 10) || 120);
       el.epochs.value = epochs;
       el.progress.style.width = "0%";
       train(epochs);
@@ -886,6 +1242,11 @@ const createImageAI = () => {
     reset,
     predict,
     canvasToVector,
+    augment,
+    generateImage,
+    renderGenerated,
+    renderTips,
+    renderConsequence,
     renderProjects,
     projects,
     get net() { return state.net; },

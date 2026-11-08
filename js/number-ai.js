@@ -283,12 +283,25 @@ const createNumberAI = () => {
     state.busy = true;
     el.trainBtn.disabled = true;
     const data = dataset();
-    const lr = 0.01;
     const batchSize = Math.min(16, data.length);
 
     let lastLoss = 0;
+    let bestLoss = Infinity;
+    let stale = 0;
+    let rounds = 0;
     for (let i = 0; i < epochs; i++) {
+      // Grosse Schritte am Anfang, feinere spaeter -> schnell und genau.
+      const lr = 0.02 * (1 - 0.5 * (i / epochs));
       lastLoss = state.net.trainEpoch(data, { lr, batchSize });
+      rounds = i + 1;
+
+      if (lastLoss < bestLoss - 1e-6) {
+        bestLoss = lastLoss;
+        stale = 0;
+      } else {
+        stale++;
+      }
+
       if (i % 10 === 0 || i === epochs - 1) {
         el.progress.style.width = (((i + 1) / epochs) * 100).toFixed(1) + "%";
         setStatus(`Runde ${i + 1}/${epochs} – Fehler: ${lastLoss.toFixed(5)}`);
@@ -296,13 +309,14 @@ const createNumberAI = () => {
         if (onProgress) onProgress(i + 1, epochs);
         await UI.sleep(0);
       }
+      if (stale > 200 && i > 100) break;
     }
 
     el.progress.style.width = "100%";
     state.trained = true;
     state.busy = false;
     el.trainBtn.disabled = false;
-    setStatus(`Fertig! Fehler am Ende: ${lastLoss.toFixed(5)} (kleiner = besser).`);
+    setStatus(`Fertig nach ${rounds} Runden! Fehler am Ende: ${lastLoss.toFixed(5)} (kleiner = besser).`);
     updateStats();
     drawPlot();
     persist();
@@ -543,7 +557,7 @@ const createNumberAI = () => {
     el.autofill.addEventListener("click", autofill);
 
     el.trainBtn.addEventListener("click", () => {
-      const epochs = Math.max(10, Math.min(10000, parseInt(el.epochs.value, 10) || 800));
+      const epochs = Math.max(1, parseInt(el.epochs.value, 10) || 800);
       el.epochs.value = epochs;
       el.progress.style.width = "0%";
       train(epochs);

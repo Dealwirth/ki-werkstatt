@@ -125,5 +125,59 @@ console.log("\n[4] Hilfsfunktionen");
   check("Aufteilung verliert nichts", JSON.stringify(all) === JSON.stringify(items));
 }
 
+// ---------------------------------------------------------------------------
+console.log("\n[5] Neue Faehigkeiten der Engine");
+{
+  // evaluate(): Trefferquote auf bekannten Daten
+  const net = new NN.NeuralNet(7, [
+    { size: 4 },
+    { size: 8, act: "relu" },
+    { size: 2, act: "softmax" },
+  ]);
+  const data = [
+    { input: [1, 1, 0, 0], target: NN.oneHot(0, 2) },
+    { input: [0, 0, 1, 1], target: NN.oneHot(1, 2) },
+  ];
+  for (let i = 0; i < 300; i++) net.trainEpoch(data, { lr: 0.05, batchSize: 2 });
+  check("evaluate() gibt 1.0 bei gelernten Daten", net.evaluate(data) === 1);
+
+  // inputGradient(): stimmt mit dem numerischen Gradienten ueberein
+  const base = [1, 1, 0, 0];
+  const grad = net.inputGradient(base, 0);
+  check("inputGradient() hat die richtige Laenge", grad.length === base.length);
+  const eps = 1e-3;
+  let maxErr = 0;
+  for (let i = 0; i < base.length; i++) {
+    const a = base.slice();
+    const b = base.slice();
+    a[i] += eps;
+    b[i] -= eps;
+    const numeric = (net.predict(a)[0] - net.predict(b)[0]) / (2 * eps);
+    maxErr = Math.max(maxErr, Math.abs(numeric - grad[i]));
+  }
+  check("inputGradient() stimmt mit numerischem Gradienten", maxErr < 1e-3,
+    "groesste Abweichung " + maxErr.toExponential(2));
+
+  // generateFor(): die KI erzeugt ein Bild, das sie sicher erkennt
+  const gen = net.generateFor(0, { steps: 40, lr: 0.5 });
+  check("generateFor() liefert die richtige Laenge", gen.length === 4);
+  const probs = net.predict(gen);
+  check("generateFor() erzeugt ein sicheres Bild", probs[0] > 0.8,
+    "Sicherheit " + probs[0].toFixed(3));
+
+  // Fruehstopp-Idee: trainEpoch meldet sinkenden Fehler
+  const net2 = new NN.NeuralNet(3, [{ size: 1 }, { size: 8, act: "relu" }, { size: 1, act: "linear" }]);
+  const reg = [
+    { input: [0], target: [1] },
+    { input: [1], target: [3] },
+    { input: [2], target: [5] },
+  ];
+  const first = net2.trainEpoch(reg, { lr: 0.05, batchSize: 3 });
+  for (let i = 0; i < 200; i++) net2.trainEpoch(reg, { lr: 0.05, batchSize: 3 });
+  const last = net2.lossHistory[net2.lossHistory.length - 1];
+  check("Lernen senkt den Fehler deutlich", last < first / 10,
+    `${first.toFixed(3)} -> ${last.toFixed(4)}`);
+}
+
 console.log(`\n=== Engine-Ergebnis: ${passed} bestanden, ${failed} fehlgeschlagen ===`);
 process.exit(failed > 0 ? 1 : 0);
